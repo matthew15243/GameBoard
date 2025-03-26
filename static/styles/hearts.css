@@ -1,0 +1,71 @@
+body {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+	background-color: #156e3d;
+	position: relative;
+	margin: 0;
+}
+.game-container {
+	width: 100vw;
+	height: 100vh;
+	position: relative;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+.player {
+	position: absolute;
+	display: flex;
+	flex-wrap: nowrap;
+}
+.player.hand {
+	flex-direction: row;
+	justify-content: center;
+}
+.top { top: 0%; left: 50%; transform: translateX(-50%) rotate(180deg); }
+.bottom {bottom: 0%; left: 50%; transform: translateX(-50%); }
+.left { left: -26vh; top: 50%; transform: translateY(-50%) rotate(90deg); }
+.right { right: -26vh; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+
+.card {
+	width: 15vh;
+	height: auto;
+	aspect-ratio: 2/3;
+	background-color: white;
+	border-radius: 5px;
+	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+	position: relative;
+}
+.player .card { /* This is responsible for the overlapping */
+	margin-left: -10vh;
+}
+.player .card:first-child {
+	margin-left: 0;
+}
+
+.play-area {
+	width: 75vh;
+	height: 51vh;
+	position: absolute;
+	background-color: rgba(255, 255, 255, 0.2);
+	border-radius: 10px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.play-card {
+	position: absolute;
+	width: 15vh;
+	height: auto;
+	aspect-ratio: 2/3;
+	background-color: white;
+	border-radius: 5px;
+	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+}
+.play-card.top { top: 1vh; left: 50%; transform: translateX(-50%) rotate(180); }
+.play-card.bottom { bottom: 1vh; left: 50%; transform: translateX(-50%); }
+.play-card.left { left: 5vh; top: 50%; transform: translateY(-50%) rotate(90deg); }
+.play-card.right { right: 5vh; top: 50%; transform: translateY(-50%) rotate(-90deg); }

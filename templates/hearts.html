@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+
+	<!-- <link rel="stylesheet" href="../styles/general.css"> -->
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles/general.css') }}">
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles/hearts.css') }}">
+	<!-- <link rel="stylesheet" href="../styles/hearts.css"> -->
+
+	<!-- JS Files -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script> <!-- Ensure the socket io library is installed -->
+	<script src = "{{ url_for('static', filename = 'scripts/hearts.js')}}"></script>
+</head>
+<body>
+	<div class="game-container">
+		<p id = 'players'>None</p>
+        <div class="player top hand">	
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="ace of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="2 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="3 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="4 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="5 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="6 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="7 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="8 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="9 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="10 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="jack of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="queen of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 1.svg') }}" alt="king of clubs" class = 'card'>
+		</div>
+		<div class="player left hand">
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="ace of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="2 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="3 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="4 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="5 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="6 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="7 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="8 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="9 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="10 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="jack of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="queen of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="king of clubs" class = 'card'>
+		</div>
+		<div class="player right hand">
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="ace of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="2 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="3 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="4 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="5 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="6 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="7 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="8 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="9 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="10 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="jack of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="queen of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/back 2.svg') }}" alt="king of clubs" class = 'card'>
+		</div>
+		<div class="player bottom hand">
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/ace of clubs.svg') }}" alt="ace of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/2 of clubs.svg') }}" alt="2 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/3 of clubs.svg') }}" alt="3 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/4 of clubs.svg') }}" alt="4 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/5 of clubs.svg') }}" alt="5 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/6 of clubs.svg') }}" alt="6 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/7 of clubs.svg') }}" alt="7 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/8 of clubs.svg') }}" alt="8 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/9 of clubs.svg') }}" alt="9 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/10 of clubs.svg') }}" alt="10 of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/jack of clubs.svg') }}" alt="jack of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/queen of clubs.svg') }}" alt="queen of clubs" class = 'card'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/king of clubs.svg') }}" alt="king of clubs" class = 'card'>
+		</div>
+		<div class="play-area">
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/10 of clubs.svg') }}" alt="10 of clubs" class = 'play-card top'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/jack of diamonds.svg') }}" alt="jack of diamonds" class = 'play-card right'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/queen of spades.svg') }}" alt="queen of spades" class = 'play-card bottom'>
+			<img src="{{ url_for('static', filename='Cards/Gma Hatt/king of hearts.svg') }}" alt="king of hearts" class = 'play-card left'>
+		</div>
+	</div>
+	
+</body>
+</html>
