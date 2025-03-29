@@ -15,33 +15,28 @@ supabase_client = supabase.create_client(url, key)
 
 @auth_bp.route('/signup', methods=['POST'])
 def signup():
-    print('trying to sign up')
     data = request.json  
     email = data.get("email")
     password = data.get("password")
     username = data.get("username")
-    display_name = data.get("display_name", username)  # Default display name to username if not provided
-    print(data)
 
     # Ensure username is unique before proceeding
     existing_user = supabase_client.table("profiles").select("id").eq("username", username).execute()
     if existing_user.data:
         return jsonify({"error": "Username already taken"}), 400
-    print('profile added')
 
     try:
         # Create user in Supabase auth
-        response = supabase_client.auth.sign_up({"email": email, "password": password})
+        response = supabase_client.auth.sign_up({"email": email, "password": password, 'display_name' : username})
         user_id = response.user.id  # Get user ID
 
-        # Store username & display_name in profiles table
+        # Store username in profiles table
         supabase_client.table("profiles").insert({
             "id": user_id,
-            "username": username,
-            "display_name": display_name
+            "username": username
         }).execute()
 
-        return jsonify({"message": "User created successfully!", "user": response.user}), 201
+        return jsonify({"message": "User created successfully!"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
@@ -55,8 +50,8 @@ def login():
         response = supabase_client.auth.sign_in_with_password({"email": email, "password": password})
         user_id = response.user.id
 
-        # Fetch username and display_name from profiles
-        profile_response = supabase_client.table("profiles").select("username", "display_name").eq("id", user_id).execute()
+        # Fetch username from profiles
+        profile_response = supabase_client.table("profiles").select("username").eq("id", user_id).execute()
         profile = profile_response.data[0] if profile_response.data else {}
 
         session['user'] = user_id  # Store session
@@ -85,7 +80,7 @@ def get_user():
     user_id = user.user.id
 
     # Fetch user profile
-    profile_response = supabase_client.table("profiles").select("username", "display_name").eq("id", user_id).execute()
+    profile_response = supabase_client.table("profiles").select("username").eq("id", user_id).execute()
     profile = profile_response.data[0] if profile_response.data else {}
 
     return jsonify({"user": user, "profile": profile})

@@ -6,13 +6,15 @@ async function signup() {
     const email = document.getElementById("signup-email").value;
     const password = document.getElementById("signup-password").value;
     const username = document.getElementById("signup-username").value;
-    const display_name = document.getElementById("signup-displayname").value;
 
+	console.log('starting')
     const response = await fetch(`${BASE_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, username, display_name })
+        body: JSON.stringify({ email, password, username})
     });
+	console.log('finished')
+	console.log(response)
 
     const data = await response.json();
     if (response.ok) {
@@ -47,7 +49,6 @@ async function login() {
 function showUser(profile) {
     document.getElementById("auth-section").style.display = "none";
     document.getElementById("user-section").style.display = "block";
-    document.getElementById("display-name").textContent = profile.display_name || "User";
     document.getElementById("username").textContent = profile.username;
 }
 
