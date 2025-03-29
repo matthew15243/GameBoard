@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask + Supabase Auth</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/login.css') }}">
+    <script src="{{ url_for('static', filename='scripts/login.js') }}" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Flask + Supabase Authentication</h1>
+
+        <div id="auth-section">
+            <h2>Sign Up</h2>
+            <input type="email" id="signup-email" placeholder="Email">
+            <input type="password" id="signup-password" placeholder="Password">
+            <input type="text" id="signup-username" placeholder="Username">
+            <input type="text" id="signup-displayname" placeholder="Display Name (Optional)">
+            <button onclick="signup()">Sign Up</button>
+
+            <h2>Login</h2>
+            <input type="email" id="login-email" placeholder="Email">
+            <input type="password" id="login-password" placeholder="Password">
+            <button onclick="login()">Login</button>
+        </div>
+
+        <div id="user-section" style="display: none;">
+            <h2>Welcome, <span id="display-name"></span> (@<span id="username"></span>)</h2>
+            <button onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+</body>
+</html>

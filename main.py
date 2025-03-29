@@ -1,12 +1,28 @@
 from flask import Flask, render_template, redirect, url_for, request
 from flask_socketio import SocketIO, emit
 from routes.hearts import hearts_bp
+from routes.auth import auth_bp
+from supabase import Client, create_client
+import os
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 socketio = SocketIO(app)
 
+# This should be moved to a .env file
+
+load_dotenv('./games.env')
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+
+supabase: Client = create_client(url, key)
+
+# Run the query after initializing the client
+# response = supabase.table("Users").select("*").execute()
+
 # Register blueprints
 app.register_blueprint(hearts_bp, url_prefix='/hearts')
+app.register_blueprint(auth_bp, url_prefix='/auth')
 
 connected_clients = {}
 
@@ -34,6 +50,10 @@ def echo(name):
 	return f"Hello {name}"
 
 @app.route('/')
+def home():
+	# return render_template('home.html')
+	return render_template('login.html')
+
 @app.route('/hearts/')
 def playHearts():
 	return render_template('hearts.html')
