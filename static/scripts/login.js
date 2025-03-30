@@ -1,20 +1,31 @@
 // const BASE_URL = "http://127.0.0.1:5000";  // Flask server
 const BASE_URL = "http://192.168.216.103:8080";  // Flask server
 
+function showTab(tab) {
+    if (tab === 'signup') {
+        document.getElementById('signup-form').style.display = 'block';
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('signup-tab').classList.add('active');
+        document.getElementById('login-tab').classList.remove('active');
+    } else {
+        document.getElementById('signup-form').style.display = 'none';
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('signup-tab').classList.remove('active');
+        document.getElementById('login-tab').classList.add('active');
+    }
+}
+
 // Signup Function
 async function signup() {
     const email = document.getElementById("signup-email").value;
     const password = document.getElementById("signup-password").value;
     const username = document.getElementById("signup-username").value;
 
-	console.log('starting')
     const response = await fetch(`${BASE_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, username})
     });
-	console.log('finished')
-	console.log(response)
 
     const data = await response.json();
     if (response.ok) {

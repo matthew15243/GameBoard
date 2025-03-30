@@ -1,4 +1,3 @@
-import os
-from dotenv import load_dotenv
+import secrets
 
-print(os.getenv('DATABASE_URL'))
+print(secrets.token_hex(32))
