@@ -9,26 +9,41 @@
 </head>
 <body>
     <div class="container">
-        <h1>Welcome to Flask + Supabase Authentication</h1>
+        <h1>Welcome to the Game Board</h1>
+
+        <!-- Tabs for switching between Sign Up & Login -->
 
         <div id="auth-section">
-            <h2>Sign Up</h2>
-            <input type="email" id="signup-email" placeholder="Email">
-            <input type="password" id="signup-password" placeholder="Password">
-            <input type="text" id="signup-username" placeholder="Username">
-            <button onclick="signup()">Sign Up</button>
+            <div class="tabs">
+                <button id="signup-tab" class="active" onclick="showTab('signup')">Sign Up</button>
+                <button id="login-tab" onclick="showTab('login')">Login</button>
+            </div>
 
-            <h2>Login</h2>
-            <input type="email" id="login-email" placeholder="Email">
-            <input type="password" id="login-password" placeholder="Password">
-            <button onclick="login()">Login</button>
+            <!-- Sign Up Form -->
+            <div id="signup-form">
+                <div class = 'inputs'>
+                    <input type="email" id="signup-email" placeholder="Email">
+                    <input type="password" id="signup-password" placeholder="Password">
+                    <input type="text" id="signup-username" placeholder="Username">
+                </div>
+                <button onclick="signup()">Sign Up</button>
+            </div>
+
+            <!-- Login Form (Hidden by Default) -->
+            <div id="login-form" style="display: none;">
+                <div class = 'inputs'>
+                    <input type="email" id="login-email" placeholder="Email">
+                    <input type="password" id="login-password" placeholder="Password">
+                </div>
+                <button onclick="login()">Login</button>
+            </div>
         </div>
 
+        <!-- User Logged In Section -->
         <div id="user-section" style="display: none;">
-            <h2>Welcome, (@<span id="username"></span>)</h2>
+            <h2>Welcome, <span id="username"></span></h2>
             <button onclick="logout()">Logout</button>
         </div>
     </div>
-
 </body>
 </html>

@@ -57,7 +57,7 @@ def login():
         session['user'] = user_id  # Store session
         return jsonify({
             "message": "Login successful",
-            "user": response.user,
+            "user": response.user.id, # There is lots of info in response.user if I want more in the future
             "profile": profile
         })
     except Exception as e:

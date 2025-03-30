@@ -5,27 +5,23 @@ from routes.auth import auth_bp
 from supabase import Client, create_client
 import os
 from dotenv import load_dotenv
+# Intialize the .env file
+load_dotenv('./games.env')
 
+# Initialize the app
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_KEY")
 socketio = SocketIO(app)
 
-# This should be moved to a .env file
-
-load_dotenv('./games.env')
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")
-
-supabase: Client = create_client(url, key)
-
-# Run the query after initializing the client
-# response = supabase.table("Users").select("*").execute()
+# Initialize the database
+supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 # Register blueprints
-app.register_blueprint(hearts_bp, url_prefix='/hearts')
-app.register_blueprint(auth_bp, url_prefix='/auth')
+app.register_blueprint(hearts_bp, url_prefix='/hearts') # Get the Hearts route
+app.register_blueprint(auth_bp, url_prefix='/auth') # Get the authorization route
 
+# Watch for connections and disconnections
 connected_clients = {}
-
 @socketio.on('connect')
 def handle_connect():
     ip = request.remote_addr  # Get IP address of the client
