@@ -1,7 +1,8 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, redirect ,url_for
 import supabase
 import os
 from dotenv import load_dotenv
+from routes.decorators import login_required
 
 load_dotenv('./games.env')
 url = os.getenv("SUPABASE_URL")
@@ -69,8 +70,8 @@ def logout():
     session.pop('user', None)  # Remove user from session
     return jsonify({"message": "Logged out successfully"})
 
-# @login_required
 @auth_bp.route('/user', methods=['GET'])
+@login_required
 def get_user():
     user = supabase_client.auth.get_user()
 
@@ -83,4 +84,44 @@ def get_user():
     profile_response = supabase_client.table("profiles").select("username").eq("id", user_id).execute()
     profile = profile_response.data[0] if profile_response.data else {}
 
-    return jsonify({"user": user, "profile": profile})
+    return jsonify({"profile": profile})
+
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.json
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"message": "Email is required"}), 400
+
+    try:
+        supabase_client.auth.reset_password_for_email(email)
+        return jsonify({"message": "Password reset email sent!"})
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    data = request.json
+    email = data.get('email')
+    new_password = data.get("password")
+    access_token = data.get("access_token")
+
+    if not new_password or not access_token or not email:
+        return jsonify({"message": "Invalid request"}), 400
+
+    try:
+        # Authenticate the user with the access token from the password reset email
+        # supabase_client.auth.set_session(access_token)
+        supabase_client.auth.verify_otp({
+            "email": email,
+            "token": access_token,
+            "type": "email"
+        })
+
+        # Now update the password
+        supabase_client.auth.update_user({"password": new_password})
+
+        return jsonify({"message": "Password updated successfully!"})
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500

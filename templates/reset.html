@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password</title>
+</head>
+<body>
+    <h2>Reset Your Password</h2>
+    <input type="password" id="new-password" placeholder="New Password">
+    <button onclick="resetPassword()">Reset Password</button>
+
+    <script>
+        async function resetPassword() {
+            const params = new URLSearchParams(window.location.search);
+            const access_token = params.get("access_token");
+            const email = params.get("email");
+			console.log(access_token)
+			console.log(email)
+
+            if (!access_token) {
+                alert("Invalid or expired reset link.");
+                return;
+            }
+
+            const password = document.getElementById("new-password").value;
+            const response = await fetch("/auth/reset-password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password, access_token }),
+            });
+
+            const data = await response.json();
+
+			if (response.ok) {
+        		// If password reset is successful, redirect to login page
+        		window.location.href = "/login";  // Redirect to login page
+    		} else {
+        		alert(data.message);  // Display error message
+    }
+        }
+    </script>
+</body>
+</html>

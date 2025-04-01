@@ -35,20 +35,18 @@ def handle_disconnect():
     print(f"Client {ip} disconnected.")
     emit('update_players', list(connected_clients.values()), broadcast=True)
 
-# Example on redirecting
-@app.route('/play/')
-def play():
-	return redirect(url_for("playHearts"))
+@app.route("/reset-password/", methods=["GET"])
+def reset_password_page():
+    return render_template("reset.html")
 
-# Example with parameters
-@app.route('/echo/<name>')
-def echo(name):
-	return f"Hello {name}"
+@app.route('/login/')
+def login():
+	return render_template('login.html')
 
 @app.route('/')
+@app.route('/home/')
 def home():
-	# return render_template('home.html')
-	return render_template('login.html')
+	return redirect(url_for('login'))
 
 @app.route('/hearts/')
 def playHearts():

@@ -35,6 +35,20 @@ async function signup() {
     }
 }
 
+async function forgotPassword() {
+    const email = prompt("Enter your email to reset your password:");
+    if (!email) return;
+
+    const response = await fetch("/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+    });
+
+    const data = await response.json();
+    alert(data.message);
+}
+
 // Login Function
 async function login() {
     const email = document.getElementById("login-email").value;
@@ -54,6 +68,18 @@ async function login() {
     } else {
         alert("Login failed: " + data.error);
     }
+
+}
+
+async function getSelfProfile() {
+    const data = await fetch(`${BASE_URL}/auth/user`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+    });
+
+    const profile = await data.json()
+
+    return profile.profile
 }
 
 // Show User Info
