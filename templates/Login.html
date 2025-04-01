@@ -15,12 +15,12 @@
 
         <div id="auth-section">
             <div class="tabs">
-                <button id="signup-tab" class="active" onclick="showTab('signup')">Sign Up</button>
-                <button id="login-tab" onclick="showTab('login')">Login</button>
+                <button id="login-tab" class = "active" onclick="showTab('login')">Login</button>
+                <button id="signup-tab" onclick="showTab('signup')">Sign Up</button>
             </div>
 
             <!-- Sign Up Form -->
-            <div id="signup-form">
+            <div id="signup-form" style = "display: none;">
                 <div class = 'inputs'>
                     <input type="email" id="signup-email" placeholder="Email">
                     <input type="password" id="signup-password" placeholder="Password">
@@ -30,13 +30,14 @@
             </div>
 
             <!-- Login Form (Hidden by Default) -->
-            <div id="login-form" style="display: none;">
+            <div id="login-form">
                 <div class = 'inputs'>
                     <input type="email" id="login-email" placeholder="Email">
                     <input type="password" id="login-password" placeholder="Password">
                 </div>
                 <button onclick="login()">Login</button>
             </div>
+            <p><a href="#" onclick="forgotPassword()">Forgot Password?</a></p>
         </div>
 
         <!-- User Logged In Section -->
