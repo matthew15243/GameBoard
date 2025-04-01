@@ -1,4 +1,3 @@
-// const BASE_URL = "http://127.0.0.1:5000";  // Flask server
 const BASE_URL = "http://192.168.216.103:8080";  // Flask server
 
 function showTab(tab) {
@@ -70,14 +69,6 @@ async function login() {
         alert("Login failed: " + data.error);
     }
 
-}
-
-// Logout Function
-async function logout() {
-    await fetch(`${BASE_URL}/auth/logout`, { method: "POST" });
-    localStorage.removeItem("user");  // Remove user info
-    alert("Logged out successfully.");
-    window.location.reload();
 }
 
 // Auto-login if user is stored in localStorage

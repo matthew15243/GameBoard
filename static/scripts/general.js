@@ -20,3 +20,12 @@ async function getProfile() {
 
     return profile.profile
 }
+
+
+// Logout Function
+async function logout() {
+    await fetch(`${BASE_URL}/auth/logout`, { method: "POST" });
+    localStorage.removeItem("user");  // Remove user info
+    alert("Logged out successfully.");
+    window.location.reload();
+}
