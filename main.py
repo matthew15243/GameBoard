@@ -6,7 +6,7 @@ from routes.general import general_bp
 from supabase import Client, create_client
 import os
 from dotenv import load_dotenv
-from routes.decorators import login_required
+from routes.decorators import login_required_with_redirect
 
 # Intialize the .env file
 load_dotenv('./games.env')
@@ -48,7 +48,7 @@ def login():
 	return render_template('login.html')
 
 @app.route('/lobby/')
-@login_required
+@login_required_with_redirect
 def lobby():
 	return render_template('lobby.html')
 
