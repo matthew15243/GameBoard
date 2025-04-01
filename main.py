@@ -2,9 +2,12 @@ from flask import Flask, render_template, redirect, url_for, request
 from flask_socketio import SocketIO, emit
 from routes.hearts import hearts_bp
 from routes.auth import auth_bp
+from routes.general import general_bp
 from supabase import Client, create_client
 import os
 from dotenv import load_dotenv
+from routes.decorators import login_required
+
 # Intialize the .env file
 load_dotenv('./games.env')
 
@@ -19,6 +22,7 @@ supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_
 # Register blueprints
 app.register_blueprint(hearts_bp, url_prefix='/hearts') # Get the Hearts route
 app.register_blueprint(auth_bp, url_prefix='/auth') # Get the authorization route
+app.register_blueprint(general_bp, url_prefix='/general') # Get the general functions route
 
 # Watch for connections and disconnections
 connected_clients = {}
@@ -42,6 +46,11 @@ def reset_password_page():
 @app.route('/login/')
 def login():
 	return render_template('login.html')
+
+@app.route('/lobby/')
+@login_required
+def lobby():
+	return render_template('lobby.html')
 
 @app.route('/')
 @app.route('/home/')

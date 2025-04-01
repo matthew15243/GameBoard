@@ -62,31 +62,14 @@ async function login() {
 
     const data = await response.json();
     if (response.ok) {
-        alert("Login successful!");
+        // alert("Login successful!");
         localStorage.setItem("user", JSON.stringify(data.profile));  // Store user info
-        showUser(data.profile);
+        window.location.href = "/lobby";  // Redirect to login page
+        // showUser(data.profile);
     } else {
         alert("Login failed: " + data.error);
     }
 
-}
-
-async function getSelfProfile() {
-    const data = await fetch(`${BASE_URL}/auth/user`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-    });
-
-    const profile = await data.json()
-
-    return profile.profile
-}
-
-// Show User Info
-function showUser(profile) {
-    document.getElementById("auth-section").style.display = "none";
-    document.getElementById("user-section").style.display = "block";
-    document.getElementById("username").textContent = profile.username;
 }
 
 // Logout Function

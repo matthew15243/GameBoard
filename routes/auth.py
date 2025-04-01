@@ -2,7 +2,6 @@ from flask import Blueprint, request, jsonify, session, redirect ,url_for
 import supabase
 import os
 from dotenv import load_dotenv
-from routes.decorators import login_required
 
 load_dotenv('./games.env')
 url = os.getenv("SUPABASE_URL")
@@ -55,7 +54,7 @@ def login():
         profile_response = supabase_client.table("profiles").select("username").eq("id", user_id).execute()
         profile = profile_response.data[0] if profile_response.data else {}
 
-        session['user'] = user_id  # Store session
+        session['id'] = user_id  # Store session
         return jsonify({
             "message": "Login successful",
             "user": response.user.id, # There is lots of info in response.user if I want more in the future
@@ -67,24 +66,8 @@ def login():
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
     supabase_client.auth.sign_out()
-    session.pop('user', None)  # Remove user from session
+    session.pop('id', None)  # Remove user from session
     return jsonify({"message": "Logged out successfully"})
-
-@auth_bp.route('/user', methods=['GET'])
-@login_required
-def get_user():
-    user = supabase_client.auth.get_user()
-
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    user_id = user.user.id
-
-    # Fetch user profile
-    profile_response = supabase_client.table("profiles").select("username").eq("id", user_id).execute()
-    profile = profile_response.data[0] if profile_response.data else {}
-
-    return jsonify({"profile": profile})
 
 @auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():

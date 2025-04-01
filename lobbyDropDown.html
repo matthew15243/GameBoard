@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Lobby</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { display: flex; height: 100vh; gap: 2%; padding: 2%; }
+        
+        .sidebar { flex: 1; background: #f4f4f4; padding: 1em; border-radius: 0.5em; overflow-y: auto; max-height: 100%; }
+        .games-list { list-style: none; }
+        .games-list li { display: flex; justify-content: space-between; padding: 0.5em; cursor: pointer; border-bottom: 1px solid #ccc; }
+        .games-list li:hover { background: #ddd; }
+        
+        .main { flex: 2; display: flex; flex-direction: column; }
+        .active-games { flex: 1; background: #eaeaea; padding: 1em; border-radius: 0.5em; overflow-y: auto; }
+        .game-item { display: flex; flex-direction: column; padding: 0.5em; cursor: pointer; border-bottom: 1px solid #ccc; }
+        .game-item:hover, .game-item.selected { background: #ccc; }
+        .game-header { display: flex; justify-content: space-between; align-items: center; }
+        .game-details { display: none; padding: 0.5em; background: #f9f9f9; border-radius: 0.5em; margin-top: 0.5em; }
+        .delete { cursor: pointer; color: red; font-weight: bold; }
+        .player-count { margin-left: 1em; color: gray; }
+        
+        .buttons { display: flex; justify-content: space-around; padding: 1em; }
+        button { padding: 0.5em 1em; border: none; border-radius: 0.5em; background: #007bff; color: white; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <ul class="games-list" id="gamesList">
+            <li onclick="loadGames('Boggle')">Boggle <span class="game-count" id="Boggle-count">0</span></li>
+            <li onclick="loadGames('Hearts')">Hearts <span class="game-count" id="Hearts-count">0</span></li>
+            <li onclick="loadGames('Pinochle')">Pinochle <span class="game-count" id="Pinochle-count">0</span></li>
+            <li onclick="loadGames('Hand and Foot')">Hand and Foot <span class="game-count" id="Hand and Foot-count">0</span></li>
+            <li onclick="loadGames('Settlers of Catan')">Settlers of Catan <span class="game-count" id="Settlers of Catan-count">0</span></li>
+            <li onclick="loadGames('Splendor')">Splendor <span class="game-count" id="Splendor-count">0</span></li>
+            <li onclick="loadGames('Ticket to Ride')">Ticket to Ride <span class="game-count" id="Ticket to Ride-count">0</span></li>
+        </ul>
+    </div>
+    
+    <div class="main">
+        <div class="active-games" id="activeGames">Select a game to see available matches.</div>
+        <div class="buttons">
+            <button onclick="createGame()">Create</button>
+            <button onclick="joinGame()">Join</button>
+            <button onclick="viewRules()">Rules</button>
+        </div>
+    </div>
+    
+    <script>
+        let currentGame = "";
+        let gameCounts = {};
+        let activeGameData = {};
+
+        function loadGames(game) {
+            currentGame = game;
+            const activeGames = document.getElementById("activeGames");
+            activeGames.innerHTML = `<h3>${game} - Available Games</h3>`;
+            if (!activeGameData[game]) activeGameData[game] = [];
+            activeGameData[game].forEach(g => addGameElement(g.name, g.players));
+        }
+
+        function addGameElement(name, players) {
+            const div = document.createElement("div");
+            div.classList.add("game-item");
+            div.innerHTML = `
+                <div class="game-header" onclick="toggleDetails(this)">
+                    <span>${name} <span class='player-count'>(${players} players)</span></span>
+                    <span class='delete' onclick='deleteGame(event, this, "${currentGame}")'>🗑️</span>
+                </div>
+                <div class="game-details">
+                    <p>Created: Just now</p>
+                    <p>Max Players: 6</p>
+                    <p>Turn Time: 5 min</p>
+                    <p>Deck: Standard</p>
+                </div>
+            `;
+            document.getElementById("activeGames").appendChild(div);
+            activeGameData[currentGame].push({ name, players });
+        }
+
+        function createGame() {
+            if (!currentGame) return;
+            gameCounts[currentGame] = (gameCounts[currentGame] || 0) + 1;
+            addGameElement(`Game ${gameCounts[currentGame]}`, 1);
+            document.getElementById(`${currentGame}-count`).textContent = gameCounts[currentGame];
+        }
+
+        function joinGame() {
+            if (!currentGame || !activeGameData[currentGame].length) return;
+            const lastGame = document.querySelector(".game-item:last-child .player-count");
+            let players = parseInt(lastGame.textContent.match(/\d+/)[0]);
+            if (players < 6) {
+                players++;
+                lastGame.textContent = `(${players} players)`;
+            }
+        }
+
+        function viewRules() {
+            alert("Viewing rules for " + currentGame);
+        }
+
+        function deleteGame(event, el, game) {
+            event.stopPropagation();
+            el.closest(".game-item").remove();
+            gameCounts[game] = Math.max(0, gameCounts[game] - 1);
+            document.getElementById(`${game}-count`).textContent = gameCounts[game];
+        }
+
+        function toggleDetails(el) {
+            const details = el.nextElementSibling;
+            details.style.display = details.style.display === "block" ? "none" : "block";
+        }
+    </script>
+</body>
+</html>
