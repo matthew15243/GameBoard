@@ -21,7 +21,7 @@ def signup():
     username = data.get("username")
 
     # Ensure username is unique before proceeding
-    existing_user = supabase_client.table("profiles").select("id").eq("username", username).execute()
+    existing_user = supabase_client.table("Profiles").select("id").eq("username", username).execute()
     if existing_user.data:
         return jsonify({"error": "Username already taken"}), 400
 
@@ -31,7 +31,7 @@ def signup():
         user_id = response.user.id  # Get user ID
 
         # Store username in profiles table
-        supabase_client.table("profiles").insert({
+        supabase_client.table("Profiles").insert({
             "id": user_id,
             "username": username
         }).execute()
@@ -50,8 +50,8 @@ def login():
         response = supabase_client.auth.sign_in_with_password({"email": email, "password": password})
         user_id = response.user.id
 
-        # Fetch username from profiles
-        profile_response = supabase_client.table("profiles").select("username").eq("id", user_id).execute()
+        # Fetch username from Profiles
+        profile_response = supabase_client.table("Profiles").select("username").eq("id", user_id).execute()
         profile = profile_response.data[0] if profile_response.data else {}
 
         session['id'] = user_id  # Store session

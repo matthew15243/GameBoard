@@ -25,7 +25,7 @@ def get_user():
     user_id = user['id']
 
     # Fetch user profile
-    profile_response = supabase_client.table("profiles").select("username").eq("id", user_id).execute()
+    profile_response = supabase_client.table("Profiles").select("username").eq("id", user_id).execute()
     profile = profile_response.data[0] if profile_response.data else {}
 
     return jsonify({"profile": profile})
