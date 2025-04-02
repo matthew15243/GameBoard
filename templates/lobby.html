@@ -1,10 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Document</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Lobby</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles/lobby.css') }}">
+	<script src = "{{ url_for('static', filename = 'scripts/general.js')}}" defer></script>
+	<script src = "{{ url_for('static', filename = 'scripts/lobby.js')}}" defer></script>
 </head>
 <body>
+    <div class="sidebar">
+        <ul class="games-list" id="gamesList">
+            <!-- <li onclick="loadGames('Boggle')">Boggle <span class="game-count" id="Boggle-count">0</span></li> -->
+            <!-- <li onclick="loadGames('Hearts')">Hearts <span class="game-count" id="Hearts-count">0</span></li> -->
+            <!-- <li onclick="loadGames('Pinochle')">Pinochle <span class="game-count" id="Pinochle-count">0</span></li> -->
+            <!-- <li onclick="loadGames('Hand and Foot')">Hand and Foot <span class="game-count" id="Hand and Foot-count">0</span></li> -->
+            <!-- <li onclick="loadGames('Settlers of Catan')">Settlers of Catan <span class="game-count" id="Settlers of Catan-count">0</span></li> -->
+            <!-- <li onclick="loadGames('Splendor')">Splendor <span class="game-count" id="Splendor-count">0</span></li> -->
+            <!-- <li onclick="loadGames('Ticket to Ride')">Ticket to Ride <span class="game-count" id="Ticket to Ride-count">0</span></li> -->
+        </ul>
+        <button onclick="logout()">log out</button>
+    </div>
+    
+    <div class="main">
+        <div class="active-games" id="activeGames">Select a game to see available matches.</div>
+        <div class="buttons">
+            <button onclick="createGame()">Create</button>
+            <button onclick="joinGame()">Join</button>
+            <button onclick="viewRules()">Rules</button>
+        </div>
+    </div>
 </body>
 </html>

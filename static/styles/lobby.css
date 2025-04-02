@@ -1,0 +1,19 @@
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+body { display: flex; height: 100vh; gap: 2%; padding: 2%; }
+        
+.sidebar { flex: 1; background: #f4f4f4; padding: 1em; border-radius: 0.5em; overflow-y: auto; max-height: 100%; }
+.games-list { list-style: none; }
+.games-list li { display: flex; justify-content: space-between; padding: 0.5em; cursor: pointer; border-bottom: 1px solid #ccc; }
+.games-list li:hover { background: #ddd; }
+
+.main { flex: 2; display: flex; flex-direction: column; }
+.active-games { flex: 1; background: #eaeaea; padding: 1em; border-radius: 0.5em; overflow-y: auto; }
+.game-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5em; cursor: pointer; }
+.game-item:hover, .game-item.selected { background: #ccc; }
+.game-item span { flex: 1; }
+.delete { cursor: pointer; color: red; font-weight: bold; }
+.player-count { margin-left: 1em; color: gray; }
+
+.buttons { display: flex; justify-content: space-around; padding: 1em; }
+button { padding: 0.5em 1em; border: none; border-radius: 0.5em; background: #007bff; color: white; cursor: pointer; }
+button:hover { background: #0056b3; }

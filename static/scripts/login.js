@@ -1,4 +1,3 @@
-// const BASE_URL = "http://127.0.0.1:5000";  // Flask server
 const BASE_URL = "http://192.168.216.103:8080";  // Flask server
 
 function showTab(tab) {
@@ -62,39 +61,14 @@ async function login() {
 
     const data = await response.json();
     if (response.ok) {
-        alert("Login successful!");
+        // alert("Login successful!");
         localStorage.setItem("user", JSON.stringify(data.profile));  // Store user info
-        showUser(data.profile);
+        window.location.href = "/lobby";  // Redirect to login page
+        // showUser(data.profile);
     } else {
         alert("Login failed: " + data.error);
     }
 
-}
-
-async function getSelfProfile() {
-    const data = await fetch(`${BASE_URL}/auth/user`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-    });
-
-    const profile = await data.json()
-
-    return profile.profile
-}
-
-// Show User Info
-function showUser(profile) {
-    document.getElementById("auth-section").style.display = "none";
-    document.getElementById("user-section").style.display = "block";
-    document.getElementById("username").textContent = profile.username;
-}
-
-// Logout Function
-async function logout() {
-    await fetch(`${BASE_URL}/auth/logout`, { method: "POST" });
-    localStorage.removeItem("user");  // Remove user info
-    alert("Logged out successfully.");
-    window.location.reload();
 }
 
 // Auto-login if user is stored in localStorage
