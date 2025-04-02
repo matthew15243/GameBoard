@@ -3,6 +3,7 @@ from flask import Flask, render_template, redirect, url_for, session
 from routes.hearts import hearts_bp
 from routes.auth import auth_bp
 from routes.general import general_bp
+from routes.lobby import lobby_bp
 from supabase import Client, create_client
 import os
 from dotenv import load_dotenv
@@ -23,6 +24,7 @@ supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_
 app.register_blueprint(hearts_bp, url_prefix='/hearts') # Get the Hearts route
 app.register_blueprint(auth_bp, url_prefix='/auth') # Get the authorization route
 app.register_blueprint(general_bp, url_prefix='/general') # Get the general functions route
+app.register_blueprint(lobby_bp, url_prefix='/lobby') # Get the general functions route
 
 # Watch for connections and disconnections
 """connected_clients = {}

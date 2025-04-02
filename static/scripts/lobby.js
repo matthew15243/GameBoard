@@ -1,5 +1,3 @@
-
-
 let selectedGameElement = null;
 const activeGames = document.getElementById("activeGames");
 const gameCounts = {};
@@ -7,14 +5,14 @@ const maxPlayers = 6;
 let currentGame = "";
         
 function loadGames(game) {
-    currentGame = game;
+    currentGame = game.replace(/\s+/g, "").toLowerCase();
     const games = [
         { name: "Game 1", players: Math.floor(Math.random() * 5) + 1 },
         { name: "Game 2", players: Math.floor(Math.random() * 5) + 1 },
         { name: "Game 3", players: Math.floor(Math.random() * 5) + 1 }
     ];
     gameCounts[game] = games.length;
-    document.getElementById(`${game}-count`).textContent = games.length;
+    document.getElementById(`${currentGame}-count`).textContent = games.length;
     
     activeGames.innerHTML = `<h3>${game} - Available Games</h3>`;
     games.forEach(g => addGameElement(g.name, g.players));
@@ -56,3 +54,42 @@ function deleteGame(el, game) {
     gameCounts[game] = Math.max(0, gameCounts[game] - 1);
     document.getElementById(`${game}-count`).textContent = gameCounts[game];
 }
+
+function fetchGamesFromBackend() {
+    fetch(`${BASE_URL}/lobby/get_games`)  // Change to your backend URL
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error("Error fetching games:", data.error);
+                return;
+            }
+            localStorage.setItem("playableGames", JSON.stringify(data));
+            resetGameList(data);
+        })
+        .catch(error => console.error("Failed to fetch games:", error));
+}
+
+function resetGameList(games) {
+    const gameList = document.getElementById("gamesList");
+    gameList.innerHTML = "";  // Clear existing list
+
+    games.forEach(game => {
+        const li = document.createElement("li");
+        li.textContent = game.game;
+        const gameId = game.game.replace(/\s+/g, "").toLowerCase()
+        li.textContent = game.game
+
+        // Add the game count to the li-element
+        let span = document.createElement("span"); 
+        span.className = "game-count"; 
+        span.id = `${gameId}-count`; 
+        span.textContent = "0"; 
+        li.appendChild(span); // Adds the span inside li
+
+        li.id = gameId
+        li.onclick = () => loadGames(game.game);
+        gameList.appendChild(li);
+    });
+}
+
+fetchGamesFromBackend()

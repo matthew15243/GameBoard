@@ -25,7 +25,8 @@ async function getProfile() {
 // Logout Function
 async function logout() {
     await fetch(`${BASE_URL}/auth/logout`, { method: "POST" });
-    localStorage.removeItem("user");  // Remove user info
-    alert("Logged out successfully.");
-    window.location.reload();
+    localStorage.clear() // Remove local storage entirely
+    // localStorage.removeItem("user");  // Remove user info
+    // localStorage.removeItem("playableGames");  // Remove user info
+	window.location.href = '/login'; 
 }
