@@ -12,6 +12,8 @@ from routes.decorators import login_required_with_redirect
 # Intialize the .env file
 load_dotenv('./games.env')
 
+#Test comment for github calibration
+
 # Initialize the app
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_KEY")
