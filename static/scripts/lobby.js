@@ -3,6 +3,14 @@ const activeGames = document.getElementById("activeGames");
 const gameCounts = {};
 const maxPlayers = 6;
 let currentGame = "";
+
+const socket = io.connect(`${BASE_URL}`);
+
+// Listen for game updates
+socket.on('game_update', (data) => {
+    console.log("Game updated:", data);
+    // updateGameList(data);
+});
         
 function loadGames(game) {
     currentGame = game.replace(/\s+/g, "").toLowerCase();
