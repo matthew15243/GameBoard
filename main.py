@@ -1,5 +1,5 @@
-from flask import Flask, render_template, redirect, url_for, session
-# from flask_socketio import SocketIO, emit
+from flask import Flask, render_template, redirect, url_for, session, jsonify, request
+from flask_socketio import SocketIO, emit
 from routes.hearts import hearts_bp
 from routes.auth import auth_bp
 from routes.general import general_bp
@@ -17,7 +17,7 @@ load_dotenv('./games.env')
 # Initialize the app
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_KEY")
-# socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Initialize the database
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
@@ -28,20 +28,31 @@ app.register_blueprint(auth_bp, url_prefix='/auth') # Get the authorization rout
 app.register_blueprint(general_bp, url_prefix='/general') # Get the general functions route
 app.register_blueprint(lobby_bp, url_prefix='/lobby') # Get the general functions route
 
-# Watch for connections and disconnections
-"""connected_clients = {}
-@socketio.on('connect')
-def handle_connect():
-    ip = request.remote_addr  # Get IP address of the client
-    connected_clients[request.sid] = ip
-    print(f"Client {ip} connected.")
-    emit('update_players', list(connected_clients.values()), broadcast=True)
+# Web Hooks
+@app.route('/supabase-webhook', methods=['POST'])
+def supabase_webhook():
+	token = request.headers.get("Authorization")
+	print(token)
+	if (token != f"Bearer {os.getenv("FLASK_KEY")}"):
+		print('fail')
+		return jsonify({"error": "Unauthorized"}), 403
+	
+	print('success')
+	data = request.json  # Get webhook data
+	table = data.get('table')  # Supabase includes the table name
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    ip = connected_clients.pop(request.sid, None)
-    print(f"Client {ip} disconnected.")
-    emit('update_players', list(connected_clients.values()), broadcast=True)"""
+	print(f"Received update from {table}: {data}")
+
+	if table == "ActiveGames":
+		socketio.emit('game_update', data)  # Emit event for ActiveGames
+    # elif table == "Players":
+        # socketio.emit('player_update', data)  # Emit event for Players table
+    # elif table == "ChatMessages":
+        # socketio.emit('chat_update', data)  # Emit event for chat messages
+	else:
+		print("Unhandled table update")
+
+	return jsonify({"message": "Webhook received"}), 200
 
 @app.route("/reset-password/", methods=["GET"])
 def reset_password_page():
@@ -69,6 +80,6 @@ def playHearts():
 
 if __name__ == ('__main__'):
 	# socketio.run(app, host = '127.0.0.1', port = '8080', debug = True)
-	# socketio.run(app, host = '0.0.0.0', port = '8080', debug = True)
+	socketio.run(app, host = '0.0.0.0', port = '8080', debug = True)
 	# app.run(host = '127.0.0.1', port = '8080', debug = True)
-	app.run(host = '0.0.0.0', port = '8080', debug = True)
+	# app.run(host = '0.0.0.0', port = '8080', debug = True)

@@ -8,12 +8,65 @@ body { display: flex; height: 100vh; gap: 2%; padding: 2%; }
 
 .main { flex: 2; display: flex; flex-direction: column; }
 .active-games { flex: 1; background: #eaeaea; padding: 1em; border-radius: 0.5em; overflow-y: auto; }
-.game-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5em; cursor: pointer; }
+/* .game-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5em; cursor: pointer; } */
+.game-item { display: flex; flex-direction: column; padding: 0.5em; cursor: pointer; border-bottom: 1px solid #ccc; }
 .game-item:hover, .game-item.selected { background: #ccc; }
 .game-item span { flex: 1; }
 .delete { cursor: pointer; color: red; font-weight: bold; }
 .player-count { margin-left: 1em; color: gray; }
 
+.game-header { display: flex; justify-content: space-between; align-items: center; }
+.game-details { display: none; padding: 0.5em; background: #f9f9f9; border-radius: 0.5em; margin-top: 0.5em; }
+.setting-row {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+    margin: 0.5em 0;
+    white-space: nowrap;
+}
+
+.gameState {
+    font-weight: bold;
+    margin-top: 0.5em;
+}
+
+.left p {
+    margin-bottom: 0.5em;
+}
+
+.right p {
+    margin-bottom: 0.5em;
+}
+
 .buttons { display: flex; justify-content: space-around; padding: 1em; }
 button { padding: 0.5em 1em; border: none; border-radius: 0.5em; background: #007bff; color: white; cursor: pointer; }
 button:hover { background: #0056b3; }
+.configSectionName {
+    border-bottom: 1px solid #ccc;
+    margin-top: 0.5em;
+}
+
+#playersContainer {
+  width: 200px;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+.draggable {
+  padding: 8px;
+  margin: 4px 0;
+  background-color: #f0f0f0;
+  border: 1px solid #999;
+  cursor: move;
+}
+
+.drag-placeholder {
+  height: 2px;
+  background-color: blue;
+  margin: 4px 0;
+}
+
+#GameSection {
+    flex-direction: column;
+    align-items: flex-start;
+}

@@ -1,5 +1,3 @@
-const BASE_URL = "http://192.168.216.103:8080";  // Flask server
-
 function showTab(tab) {
     if (tab === 'signup') {
         document.getElementById('signup-form').style.display = 'block';
