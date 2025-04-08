@@ -13,10 +13,21 @@ lobby_bp = Blueprint('lobby', __name__)
 # Initialize Supabase client
 supabase_client = supabase.create_client(url, key)
 
-@lobby_bp.route('/get_games', methods=['GET'])
-def get_games():
+@lobby_bp.route('/get_playable_games', methods=['GET'])
+def get_playable_games():
     try:
         response = supabase_client.table('PlayableGames').select('game, configurations').execute()
+        if response.data:
+            return jsonify(response.data), 200
+        else:
+            return jsonify({"error": "No games found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@lobby_bp.route('/get_active_games', methods=['GET'])
+def get_acitve_games():
+    try:
+        response = supabase_client.table('ActiveGames').select('*').execute()
         if response.data:
             return jsonify(response.data), 200
         else:
