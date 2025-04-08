@@ -184,6 +184,9 @@ function addGameElement(id) {
             sectionHeader.textContent = section.replace(/_/g, ' ');
             details.appendChild(sectionHeader);
 
+            const settingContainer = document.createElement('div');
+            settingContainer.classList.add('setting-row');
+
             // For each set of configurations, split it into two parts (label and select)
             const left = document.createElement('div')
             left.classList.add('left')
@@ -192,32 +195,32 @@ function addGameElement(id) {
 
             // Add the people involved in the game
             if (section === 'Game') {
-                playersLabel = document.createElement('p')
-                playersLabel.textContent = "Names"
-                left.appendChild(playersLabel)
-
                 const playersContainer = document.createElement('div')
                 playersContainer.id = 'playersContainer'
-                right.appendChild(playersContainer)
+                settingContainer.appendChild(playersContainer)
 
                 let dragged = null;
                 let placeholder = document.createElement('div');
                 placeholder.className = 'drag-placeholder';
 
-                if (host !== user) {
+                // Don't make the players draggable if the game is not in a joinable state or the user isn't the host
+                if (host !== user || gameStatus != 'Joinable') {
                     players.forEach((name) => {
-                        const div = document.createElement('div');
-                        div.textContent = `${name}${name === host ? ' (host)' : ''}`;
-                        playersContainer.appendChild(div);
+                        const playerName = document.createElement('p')
+                        playerName.textContent = `${name}${name === host ? ' (host)' : ''}`;
+                        playersContainer.appendChild(playerName);
                     });
                 }
 
+                // Make the players draggable - must be in a joinable state and the user must also be the host
                 else {
                     players.forEach((name) => {
                         const div = document.createElement('div');
                         div.className = 'draggable';
-                        div.textContent = `${name}${name === host ? ' (host)' : ''}`;
                         div.setAttribute('draggable', 'true');
+                        playerName = document.createElement('p')
+                        playerName.textContent = `${name}${name === host ? ' (host)' : ''}`;
+                        div.appendChild(playerName)
                         playersContainer.appendChild(div);
                     });
 
@@ -258,7 +261,6 @@ function addGameElement(id) {
                 }
             }
 
-
             // for items in a section (second level of the json object)
             for (const [optionName, optionData] of orderObject(options, 'order')) {
                 if (optionName !== "Name" || !optionData.value.includes("s Game")) {
@@ -267,16 +269,16 @@ function addGameElement(id) {
 
                     const select = document.createElement('p');
                     select.textContent = optionData.value
-
-                    const settingContainer = document.createElement('div');
-                    settingContainer.classList.add('setting-row');
+                    console.log(optionName)
 
                     left.appendChild(label)
                     right.appendChild(select)
-                    settingContainer.appendChild(left)
-                    settingContainer.appendChild(right)
-                    details.appendChild(settingContainer);
                 }
+
+                settingContainer.appendChild(left)
+                settingContainer.appendChild(right)
+                details.appendChild(settingContainer);
+
             }
         }
     }
