@@ -1,5 +1,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
 body { display: flex; height: 100vh; gap: 2%; padding: 2%; }
+#active, #paused, #joinable {
+    margin-top: 1.5em;
+}
         
 .sidebar { flex: 1; background: #f4f4f4; padding: 1em; border-radius: 0.5em; overflow-y: auto; max-height: 100%; }
 .games-list { list-style: none; }
@@ -8,11 +11,22 @@ body { display: flex; height: 100vh; gap: 2%; padding: 2%; }
 
 .main { flex: 2; display: flex; flex-direction: column; }
 .active-games { flex: 1; background: #eaeaea; padding: 1em; border-radius: 0.5em; overflow-y: auto; }
+.activeGame {
+    display: block;
+    background-color: #ccc;
+}
 /* .game-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5em; cursor: pointer; } */
-.game-item { display: flex; flex-direction: column; padding: 0.5em; cursor: pointer; border-bottom: 1px solid #ccc; }
+.game-item {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5em;
+    cursor: pointer;
+    border-bottom: 1px solid #ccc;
+    border-radius: 0.5em;
+}
 .game-item:hover, .game-item.selected { background: #ccc; }
 .game-item span { flex: 1; }
-.delete { cursor: pointer; color: red; font-weight: bold; }
+.delete { cursor: pointer; font-size: 1em; }
 .player-count { margin-left: 1em; color: gray; }
 
 .game-header { display: flex; justify-content: space-between; align-items: center; }
@@ -47,26 +61,36 @@ button:hover { background: #0056b3; }
 }
 
 #playersContainer {
-  width: 200px;
-  padding: 10px;
+  padding: 0.8em;
   border: 1px solid #ccc;
+  width: max-content;
 }
 
 .draggable {
-  padding: 8px;
-  margin: 4px 0;
-  background-color: #f0f0f0;
-  border: 1px solid #999;
+  border: 1px solid transparent;/* #999;*/
   cursor: move;
 }
 
 .drag-placeholder {
-  height: 2px;
+  height: 3px;
   background-color: blue;
-  margin: 4px 0;
+  margin: 5px 0;
 }
 
-#GameSection {
-    flex-direction: column;
-    align-items: flex-start;
+.playerRow {
+    display: grid;
+    grid-template-columns: 1fr 6fr 2fr;
+    gap: 0.3rem;
+
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#playerHeaders {
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 0.5em;
+}
+
+.included {
+    border: 1px solid blue;
 }
