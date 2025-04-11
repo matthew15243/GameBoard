@@ -151,6 +151,119 @@ function closeGames() {
         gameEl.style.display = 'none';
     });
 }
+function createplayersElement(players, playerReadyStatuses, gameStatus, host, user) {
+    const playersContainer = document.createElement('div')
+    playersContainer.id = 'playersContainer'
+
+    // create the headers
+    {
+        const div = document.createElement('label');
+        div.className = 'playerRow'
+        div.id = 'playerHeaders'
+        playersContainer.appendChild(div);
+
+        // Add the first span, sort symbol if the user is the same as the host
+        const reorder = document.createElement('span')
+        reorder.textContent = ' '
+        div.appendChild(reorder)
+
+        // Add the name to the player div element
+        playerName = document.createElement('span')
+        playerName.textContent = 'Player Name'
+        div.appendChild(playerName)
+
+        // Add the player status check box
+        const playerStatus = document.createElement('p')
+        playerStatus.textContent = 'Ready'
+        div.appendChild(playerStatus)
+    }
+
+    players.forEach((name) => {
+        const div = document.createElement('label');
+        div.className = 'playerRow'
+        playersContainer.appendChild(div);
+
+        // Add the first span, sort symbol if the user is the same as the host
+        const reorder = document.createElement('span')
+        host === user ? reorder.textContent = '≡' : reorder.textContent = ' '
+        div.appendChild(reorder)
+
+        // Add the name to the player div element
+        playerName = document.createElement('span')
+        playerName.textContent = `${name}${name === host ? ' (host)' : ''}`;
+        div.appendChild(playerName)
+
+        // Make the players draggable - must be in a joinable state and the user must also be the host
+        if (host === user) {
+            div.classList.add('draggable');
+            div.setAttribute('draggable', 'true');
+        }
+
+        // Add the player status check box
+        const playerStatus = document.createElement('input')
+        playerStatus.type = 'checkbox'
+        playerStatus.id = name
+        playerStatus.checked = playerReadyStatuses[name]
+        playerStatus.disabled = !(name === user && gameStatus !== 'Active')
+        div.appendChild(playerStatus)
+
+        // Add the ✖️ for removing / booting a player
+        if (host === user && gameStatus === "Joinable") {
+            const removePlayer = document.createElement('span')
+            if (name !== host) { removePlayer.innerHTML = `<span onclick="removePlayer('${name}')">✖️</span>` }
+            div.appendChild(removePlayer)
+        }
+    });
+
+    // Add the draggable functionality
+    if (host === user) {
+
+        let dragged = null;
+        let placeholder = document.createElement('div');
+        placeholder.className = 'drag-placeholder';
+
+        playersContainer.addEventListener('dragstart', (e) => {
+            if (e.target.classList.contains('draggable')) {
+                dragged = e.target;
+                e.dataTransfer.effectAllowed = 'move';
+
+                setTimeout(() => {
+                    dragged.style.display = 'none';
+                }, 0);
+            }
+        });
+
+        playersContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const target = e.target;
+
+            if (!target.classList.contains('draggable')) return;
+
+            const bounding = target.getBoundingClientRect();
+            const offset = e.clientY - bounding.top;
+
+            if (offset < bounding.height / 2) {
+                playersContainer.insertBefore(placeholder, target);
+            } else {
+                playersContainer.insertBefore(placeholder, target.nextSibling);
+            }
+        });
+
+        playersContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (placeholder.parentNode) {
+                playersContainer.insertBefore(dragged, placeholder);
+                placeholder.remove();
+            }
+        });
+
+        playersContainer.addEventListener('dragend', () => {
+            dragged.style.display = ''
+            placeholder.remove();
+        });
+    }
+    return playersContainer
+}
 
 function addGameElement(id) {
     // Pull the configurations from the local storage
@@ -221,6 +334,8 @@ function addGameElement(id) {
     // Don't add the game details for an active game //
     // ============================================= //
     if (gameStatus === 'Active' || gameStatus === 'Paused') {
+        const playersContainer = createplayersElement(players, playerReadyStatuses, gameStatus, host, user)
+        details.appendChild(playersContainer)
         return
     }
 
@@ -256,118 +371,10 @@ function addGameElement(id) {
             // Add the people involved in the game
             // =================================== //
             if (section === 'Game') {
-                const playersContainer = document.createElement('div')
-                playersContainer.id = 'playersContainer'
+                const playersContainer = createplayersElement(players, playerReadyStatuses, gameStatus, host, user)
                 settingContainer.appendChild(playersContainer)
-
-                // create the headers
-                {
-                    const div = document.createElement('label');
-                    div.className = 'playerRow'
-                    div.id = 'playerHeaders'
-                    playersContainer.appendChild(div);
-
-                    // Add the first span, sort symbol if the user is the same as the host
-                    const reorder = document.createElement('span')
-                    reorder.textContent = ' '
-                    div.appendChild(reorder)
-
-                    // Add the name to the player div element
-                    playerName = document.createElement('span')
-                    playerName.textContent = 'Player Name'
-                    div.appendChild(playerName)
-
-                    // Add the player status check box
-                    const playerStatus = document.createElement('p')
-                    playerStatus.textContent = 'Ready'
-                    div.appendChild(playerStatus)
-                }
-
-                    players.forEach((name) => {
-                        const div = document.createElement('label');
-                        div.className = 'playerRow'
-                        playersContainer.appendChild(div);
-
-                        // Add the first span, sort symbol if the user is the same as the host
-                        const reorder = document.createElement('span')
-                        host === user ? reorder.textContent = '≡' : reorder.textContent = ' '
-                        div.appendChild(reorder)
-
-                        // Add the name to the player div element
-                        playerName = document.createElement('span')
-                        playerName.textContent = `${name}${name === host ? ' (host)' : ''}`;
-                        div.appendChild(playerName)
-
-                        // Make the players draggable - must be in a joinable state and the user must also be the host
-                        if (host === user) {
-                            div.classList.add('draggable');
-                            div.setAttribute('draggable', 'true');
-                        }
-
-                        // Add the player status check box
-                        const playerStatus = document.createElement('input')
-                        playerStatus.type = 'checkbox'
-                        playerStatus.id = name
-                        playerStatus.checked = playerReadyStatuses[name]
-                        playerStatus.disabled = !(name === user)
-                        div.appendChild(playerStatus)
-
-                        // Add the ✖️ for removing / booting a player
-                        if (host === user) {
-                            const removePlayer = document.createElement('span')
-                            if (name !== host) {removePlayer.innerHTML = `<span onclick="removePlayer('${name}')">✖️</span>`}
-                            div.appendChild(removePlayer)
-                        }
-                    });
-
-                // Add the draggable functionality
-                if (host === user) {
-
-                    let dragged = null;
-                    let placeholder = document.createElement('div');
-                    placeholder.className = 'drag-placeholder';
-
-                    playersContainer.addEventListener('dragstart', (e) => {
-                        if (e.target.classList.contains('draggable')) {
-                            dragged = e.target;
-                            e.dataTransfer.effectAllowed = 'move';
-
-                            setTimeout(() => {
-                                dragged.style.display = 'none';
-                            }, 0);
-                        }
-                    });
-
-                    playersContainer.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        const target = e.target;
-
-                        if (!target.classList.contains('draggable')) return;
-
-                        const bounding = target.getBoundingClientRect();
-                        const offset = e.clientY - bounding.top;
-
-                        if (offset < bounding.height / 2) {
-                            playersContainer.insertBefore(placeholder, target);
-                        } else {
-                            playersContainer.insertBefore(placeholder, target.nextSibling);
-                        }
-                    });
-
-                    playersContainer.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        if (placeholder.parentNode) {
-                            playersContainer.insertBefore(dragged, placeholder);
-                            placeholder.remove();
-                        }
-                    });
-
-                    playersContainer.addEventListener('dragend', () => {
-                        dragged.style.display = ''
-                        placeholder.remove();
-                    });
-                }
             }
+                
 
             // for items in a section (second level of the json object)
             for (const [optionName, optionData] of orderObject(options, 'order')) {

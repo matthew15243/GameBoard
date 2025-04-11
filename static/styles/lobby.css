@@ -75,8 +75,9 @@ button:hover { background: #0056b3; }
 
 #playersContainer {
   padding: 0.8em;
-  border: 1px solid #ccc;
-  width: max-content;
+  /* border: 1px solid #ccc; */
+  width: 100%;
+  /* width: max-content; */
 }
 
 .draggable {
@@ -93,7 +94,7 @@ button:hover { background: #0056b3; }
     /* background-color: green; light highlight, adjust as needed */
 /* } */
 
-.draggable > input {
+.playerRow > input, p {
     justify-self: center;
 }
 
