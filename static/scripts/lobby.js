@@ -166,6 +166,9 @@ function addGameElement(id) {
     const playerReadyStatuses = data['playerIsReadyStatuses']
     const maxPlayers = data['maxPlayers']
 
+    const gameBaseConfigs = JSON.parse(localStorage.getItem('playableGames')).filter(item => item['game'].replace(/\s+/g, "").toLowerCase() === game)[0]['configurations']
+    console.log(gameBaseConfigs)
+
     // ============================================================ //
     // Create the top container for the game (The actual active game) //
     // ============================================================ //
@@ -194,22 +197,18 @@ function addGameElement(id) {
     // =========================================== //
     const header = document.createElement('div');
     header.classList.add('game-header');
-    const deleteGameText = `<span class='delete' onclick='deleteGame(this, "${game}")'>🗑️</span>`
+    const deleteGameText = (host === user) ? `<span><span class='delete' onclick='deleteGame(this, "${game}")'>🗑️</span></span>` : `<span>️</span>`
+    let buttonText = null
+    if (gameStatus === 'Active') { buttonText = '<button>Resume</button>'}
+    else if (gameStatus === 'Paused') {buttonText = (user === host) ? '<button>Resume</button>' : ''}
+    else if (gameStatus === 'Joinable') {buttonText = (user === host) ? '<button>Start</button>' : ((players.includes(user)) ? '' : '<button>Join</button>')}
     header.innerHTML = `
         <span>${gameName}</span>
         <span class="player-count">${players.length} / ${maxPlayers} playe${(maxPlayers > 1) ? 'rs' : 'r'}</span>
-        ${host === user ? deleteGameText : ''}
+        ${deleteGameText}
+        ${buttonText}
     `;
-
-    // Attach the header
     container.appendChild(header);
-
-    // ============================================= //
-    // Don't add the game details for an active game //
-    // ============================================= //
-    if (gameStatus === 'Active' || gameStatus === 'Paused') {
-        return
-    }
 
     // =============================== //
     // Add the game details to the DOM //
@@ -218,14 +217,12 @@ function addGameElement(id) {
     details.classList.add('game-details');
     container.appendChild(details);
 
-    // Add the onclick event to open and close a game's details
-    /*container.addEventListener('click', (event) => {
-        // If the click originated inside the details element, do nothing
-        if (event.target.closest('.game-details')) { return; }
-
-        details.style.display = details.style.display === 'none' || !details.style.display ? 'block' : 'none';
-    });*/
-
+    // ============================================= //
+    // Don't add the game details for an active game //
+    // ============================================= //
+    if (gameStatus === 'Active' || gameStatus === 'Paused') {
+        return
+    }
 
     if (activeConfigs) {
         // for each configuration setting category (first level of the json object) (Game, Game Rules, Timing Settings, etc.)
@@ -249,8 +246,11 @@ function addGameElement(id) {
             left.classList.add('left')
             const right = document.createElement('div')
             right.classList.add('right')
+            const farRight = document.createElement('div')
+            farRight.classList.add('farRight')
             mainSettings.appendChild(left)
             mainSettings.appendChild(right)
+            mainSettings.appendChild(farRight)
 
             // =================================== //
             // Add the people involved in the game
@@ -311,6 +311,13 @@ function addGameElement(id) {
                         playerStatus.checked = playerReadyStatuses[name]
                         playerStatus.disabled = !(name === user)
                         div.appendChild(playerStatus)
+
+                        // Add the ✖️ for removing / booting a player
+                        if (host === user) {
+                            const removePlayer = document.createElement('span')
+                            if (name !== host) {removePlayer.innerHTML = `<span onclick="removePlayer('${name}')">✖️</span>`}
+                            div.appendChild(removePlayer)
+                        }
                     });
 
                 // Add the draggable functionality
@@ -371,6 +378,13 @@ function addGameElement(id) {
                     const select = document.createElement('p');
                     select.textContent = optionData.value
 
+                    // Add the description information
+                    if (section in gameBaseConfigs && optionName in gameBaseConfigs[section] && 'description' in gameBaseConfigs[section][optionName]) {
+                            const info = document.createElement('p')
+                            info.innerHTML = `<p title = "${gameBaseConfigs[section][optionName]['description']}" style = "cursor: help; margin-left: 0.25em;">ℹ️</p>`
+                            farRight.appendChild(info)
+                    }
+
                     left.appendChild(label)
                     right.appendChild(select)
                 }
@@ -407,11 +421,14 @@ function joinGame() {
 function viewRules() { alert("View Rules Clicked"); }
 
 function deleteGame(el, game) {
+    const confirmation = confirm(`You are about to delete "${el.parentElement.parentElement.querySelector('span').textContent}". This action CANNOT be undone.`)
+    if (!confirmation) { return }
+
     // Identify the corresponding game state div
-    gameStateElement = el.parentElement.parentElement.parentElement
+    gameStateElement = el.parentElement.parentElement.parentElement.parentElement
 
     // Remove the game
-    el.parentElement.parentElement.remove();
+    el.parentElement.parentElement.parentElement.remove();
 
     // Adjust the playable game's count
     gameCounts[game] = Math.max(0, gameCounts[game] - 1);
@@ -496,7 +513,9 @@ function orderObject(obj, key) {
 
 document.addEventListener('click', (event) => {
     // If you clicked inside of the game-details, do nothing
-    if (event.target.closest('.game-details')) { return; }
+    if (   event.target.closest('.game-details')
+        || event.target.closest('.delete')
+        || event.target.closest('button')) { return; }
 
     let details = null
     let state = null
@@ -512,6 +531,10 @@ document.addEventListener('click', (event) => {
 
 
 })
+
+function removePlayer(name) {
+    alert(`Trying to remove ${name}`)
+}
 
 // Start Up
 getPlayableGames()

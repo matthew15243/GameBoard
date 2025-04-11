@@ -4,12 +4,12 @@ body { display: flex; height: 100vh; gap: 2%; padding: 2%; }
     margin-top: 1.5em;
 }
         
-.sidebar { flex: 1; background: #f4f4f4; padding: 1em; border-radius: 0.5em; overflow-y: auto; max-height: 100%; }
+.sidebar { flex: 1; background: #f4f4f4; padding: 1em; border-radius: 0.5em; overflow-y: auto; max-height: 100%; width: max-content; max-width: 40%;}
 .games-list { list-style: none; }
 .games-list li { display: flex; justify-content: space-between; padding: 0.5em; cursor: pointer; border-bottom: 1px solid #ccc; }
 .games-list li:hover { background: #ddd; }
 
-.main { flex: 2; display: flex; flex-direction: column; }
+.main { flex: 2; display: flex; flex-direction: column; height: max-content; max-height: 100%;}
 .active-games { flex: 1; background: #eaeaea; padding: 1em; border-radius: 0.5em; overflow-y: auto; }
 .activeGame {
     display: block;
@@ -27,9 +27,18 @@ body { display: flex; height: 100vh; gap: 2%; padding: 2%; }
 .game-item:hover, .game-item.selected { background: #ccc; }
 .game-item span { flex: 1; }
 .delete { cursor: pointer; font-size: 1em; }
-.player-count { margin-left: 1em; color: gray; }
+/* .player-count { margin-left: 1em; color: gray; } */
 
-.game-header { display: flex; justify-content: space-between; align-items: center; }
+/* .game-header { display: flex; justify-content: space-between; align-items: center; } */
+.game-header {
+    display: grid;
+    grid-template-columns: 3fr 3fr 1fr 1fr;
+    place-items: center;
+    gap: 0.5rem;
+    /* display: flex; */
+    /* justify-content: space-between; */
+    /* align-items: center; */
+}
 .game-details { display: none; padding: 0.5em; background: #f9f9f9; border-radius: 0.5em; margin-top: 0.5em; }
 .setting-row {
     display: flex;
@@ -52,6 +61,10 @@ body { display: flex; height: 100vh; gap: 2%; padding: 2%; }
     margin-bottom: 0.5em;
 }
 
+.farRight p {
+    margin-bottom: 0.5em;
+}
+
 .buttons { display: flex; justify-content: space-around; padding: 1em; }
 button { padding: 0.5em 1em; border: none; border-radius: 0.5em; background: #007bff; color: white; cursor: pointer; }
 button:hover { background: #0056b3; }
@@ -67,8 +80,21 @@ button:hover { background: #0056b3; }
 }
 
 .draggable {
+  display: flex;
+  align-items: center;
   border: 1px solid transparent;/* #999;*/
   cursor: move;
+}
+
+/* This targets any element that contains a checked checkbox */
+/* .draggable:has(input[type="checkbox"]:checked), .playerRow:has(input[type="checkbox"]:checked) { */
+    /* background-color: rgba(0, 100, 0, 0.3); */
+    /* border-radius: 0.25em; */
+    /* background-color: green; light highlight, adjust as needed */
+/* } */
+
+.draggable > input {
+    justify-self: center;
 }
 
 .drag-placeholder {
@@ -79,11 +105,18 @@ button:hover { background: #0056b3; }
 
 .playerRow {
     display: grid;
-    grid-template-columns: 1fr 6fr 2fr;
+    grid-template-columns: 1fr 6fr 2fr 1fr;
     gap: 0.3rem;
+    padding-left: 0.25em;
 
     cursor: pointer;
     white-space: nowrap;
+}
+
+.playerRow:not(:first-child) {
+    box-shadow: 0 .125em .25em rgba(0, 0, 0, 0.15);
+    margin-bottom: 0.5em;
+    border-radius: 0.25em;
 }
 
 #playerHeaders {
@@ -92,5 +125,5 @@ button:hover { background: #0056b3; }
 }
 
 .included {
-    border: 1px solid blue;
+    border: 1px solid #007bff;
 }
