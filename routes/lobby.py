@@ -27,7 +27,7 @@ def get_playable_games():
 @lobby_bp.route('/get_active_games', methods=['GET'])
 def get_acitve_games():
     try:
-        response = supabase_client.table('ActiveGames').select('*').execute()
+        response = supabase_client.table('ActiveGames').select('*').in_('status', ['Joinable', 'Active', 'Paused']).execute()
         if response.data:
             return jsonify(response.data), 200
         else:

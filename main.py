@@ -75,6 +75,7 @@ def home():
 	return redirect(url_for('login'))
 
 @app.route('/hearts/')
+@login_required_with_redirect
 def playHearts():
 	return render_template('hearts.html')
 
