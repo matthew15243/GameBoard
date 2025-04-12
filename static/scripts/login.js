@@ -76,3 +76,10 @@ document.addEventListener("DOMContentLoaded", () => {
         showUser(storedUser);
     }
 });
+
+document.getElementById("login-password").addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
+      event.preventDefault(); // prevent default form submission
+      login(); // call your login function
+    }
+  });
