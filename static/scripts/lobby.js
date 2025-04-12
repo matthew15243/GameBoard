@@ -53,112 +53,48 @@ function loadGames(game) {
     games.forEach(g => addGameElement(g.id));
 }
 
-// function addGameElementOld(game, gameName) {
-//     // Create the top element for the game
-//     const container = document.createElement('div');
-//     container.classList.add('game-item');
+function formatDuration(seconds) {
+    const units = [
+        { label: 'day', value: 86400 },
+        { label: 'hour', value: 3600 },
+        { label: 'minute', value: 60 },
+        { label: 'second', value: 1 },
+    ];
 
-//     // Create the first sub-div : game name
-//     const header = document.createElement('div');
-//     header.classList.add('game-header');
-//     header.innerHTML = `
-//         <span>${gameName}</span>
-//         <span class="player-count">1 player(s)</span>
-//     `;
+    const parts = [];
 
-//     const details = document.createElement('div');
-//     details.classList.add('game-details');
+    for (const { label, value } of units) {
+        const unitAmount = Math.floor(seconds / value);
+        if (unitAmount > 0) {
+            parts.push(`${unitAmount} ${label}${unitAmount > 1 ? 's' : ''}`);
+            seconds %= value;
+        }
+    }
 
-//     const playableGames = JSON.parse(localStorage.getItem('playableGames'));
-//     const config = playableGames.filter(item => item.game.replace(/\s+/g, "").toLowerCase() === game.replace(/\s+/g, "").toLowerCase())[0].configurations;
+    if (parts.length === 0) return '0 seconds';
+    if (parts.length === 1) return parts[0];
 
-//     if (config) {
-//         // for each section (first level of the json object)
-//         for (const [section, options] of orderObject(config, 'order')) {
-//             const sectionHeader = document.createElement('h4');
-//             sectionHeader.textContent = section.replace(/_/g, ' ');
-//             sectionHeader.style.borderBottom = '1px solid #ccc';
-//             sectionHeader.style.marginTop = '1em';
-//             details.appendChild(sectionHeader);
-
-//             // for items in a section (second level of the json object)
-//             for (const [optionName, optionData] of orderObject(options, 'order')) {
-//                 const label = document.createElement('label');
-//                 label.textContent = optionName.replace(/_/g, ' ');
-//                 label.style.display = 'block';
-//                 label.style.margin = '0.5em 0 0.2em';
-
-//                 const isOptions = Array.isArray(optionData.options) && optionData.options.length > 0;
-//                 const isRange = optionData.min !== undefined && optionData.max !== undefined;
-
-//                 const select = (isOptions || isRange) ? document.createElement('select') : document.createElement('input');
-//                 select.name = optionName;
-
-//                 let defaultValue = optionData.default;
-
-//                 if (optionData.options) {
-//                     let optionsList = optionData.options;
-
-//                     optionsList.forEach(opt => {
-//                         const option = document.createElement('option');
-//                         option.value = opt;
-//                         option.textContent = String(opt);
-//                         if (opt === defaultValue) option.selected = true;
-//                         select.appendChild(option);
-//                     });
-//                 } else if (optionData.min !== undefined && optionData.max !== undefined) {
-//                     const step = optionData.step ?? 1;
-//                     for (let val = optionData.min; val <= optionData.max; val += step) {
-//                         const option = document.createElement('option');
-//                         option.value = val;
-//                         option.textContent = val;
-//                         if (val === defaultValue) option.selected = true;
-//                         select.appendChild(option);
-//                     }
-//                 } else {
-//                     select.type = 'text';
-//                     select.value = optionData.default ?? '';
-//                 }
-
-//                 const settingContainer = document.createElement('div');
-//                 settingContainer.classList.add('setting-row');
-
-//                 settingContainer.appendChild(label);
-//                 settingContainer.appendChild(select);
-//                 details.appendChild(settingContainer);
-//             }
-//         }
-//     }
-
-//     container.appendChild(header);
-//     container.appendChild(details);
-
-//     // Add the onclick event to open and close a game's details
-//     container.addEventListener('click', (event) => {
-//         // If the click originated inside the details element, do nothing
-//         if (details.contains(event.target)) return;
-
-//         details.style.display = details.style.display === 'none' || !details.style.display ? 'block' : 'none';
-//     });
-
-//     document.getElementById('activeGames').appendChild(container);
-// }
-
-function closeGames() {
-    const activeGames = document.querySelectorAll('.game-details');
-
-    activeGames.forEach((gameEl) => {
-        gameEl.style.display = 'none';
-    });
+    // Join with commas and 'and' before the last part
+    return parts.slice(0, -1).join(', ') + ' and ' + parts.slice(-1);
 }
-function createplayersElement(players, playerReadyStatuses, gameStatus, host, user) {
+
+function createplayersElement(players, playerReadyStatuses, gameStatus, host, user, id) {
     const playersContainer = document.createElement('div')
-    playersContainer.id = 'playersContainer'
+    playersContainer.id = `playersContainer${id}`
+    playersContainer.classList.add('playersContainer')
+
+    // Add the draggable functionality
+    if (user === host && gameStatus === "Joinable") {
+        Sortable.create(playersContainer, {
+            animation: 150,         // smooth dragging animation
+            draggable: '.playerRow', // define what is draggable
+        });
+    }
 
     // create the headers
     {
         const div = document.createElement('label');
-        div.className = 'playerRow'
+        div.className = 'playerRowStatic'
         div.id = 'playerHeaders'
         playersContainer.appendChild(div);
 
@@ -180,24 +116,20 @@ function createplayersElement(players, playerReadyStatuses, gameStatus, host, us
 
     players.forEach((name) => {
         const div = document.createElement('label');
-        div.className = 'playerRow'
+        div.className = (user === host && gameStatus === "Joinable") ? 'playerRow' : 'playerRowStatic'
         playersContainer.appendChild(div);
 
         // Add the first span, sort symbol if the user is the same as the host
         const reorder = document.createElement('span')
-        host === user ? reorder.textContent = '≡' : reorder.textContent = ' '
+        // (host === user) ? reorder.textContent = '≡' : reorder.textContent = ' '
+        if (host === user && gameStatus === "Joinable") { reorder.textContent = '≡'}
+        else { reorder.textContent = ' '}
         div.appendChild(reorder)
 
         // Add the name to the player div element
         playerName = document.createElement('span')
         playerName.textContent = `${name}${name === host ? ' (host)' : ''}`;
         div.appendChild(playerName)
-
-        // Make the players draggable - must be in a joinable state and the user must also be the host
-        if (host === user) {
-            div.classList.add('draggable');
-            div.setAttribute('draggable', 'true');
-        }
 
         // Add the player status check box
         const playerStatus = document.createElement('input')
@@ -215,54 +147,15 @@ function createplayersElement(players, playerReadyStatuses, gameStatus, host, us
         }
     });
 
-    // Add the draggable functionality
-    if (host === user) {
-
-        let dragged = null;
-        let placeholder = document.createElement('div');
-        placeholder.className = 'drag-placeholder';
-
-        playersContainer.addEventListener('dragstart', (e) => {
-            if (e.target.classList.contains('draggable')) {
-                dragged = e.target;
-                e.dataTransfer.effectAllowed = 'move';
-
-                setTimeout(() => {
-                    dragged.style.display = 'none';
-                }, 0);
-            }
-        });
-
-        playersContainer.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            const target = e.target;
-
-            if (!target.classList.contains('draggable')) return;
-
-            const bounding = target.getBoundingClientRect();
-            const offset = e.clientY - bounding.top;
-
-            if (offset < bounding.height / 2) {
-                playersContainer.insertBefore(placeholder, target);
-            } else {
-                playersContainer.insertBefore(placeholder, target.nextSibling);
-            }
-        });
-
-        playersContainer.addEventListener('drop', (e) => {
-            e.preventDefault();
-            if (placeholder.parentNode) {
-                playersContainer.insertBefore(dragged, placeholder);
-                placeholder.remove();
-            }
-        });
-
-        playersContainer.addEventListener('dragend', () => {
-            dragged.style.display = ''
-            placeholder.remove();
-        });
-    }
     return playersContainer
+}
+
+function closeGames() {
+    const activeGames = document.querySelectorAll('.game-details');
+
+    activeGames.forEach((gameEl) => {
+        gameEl.style.display = 'none';
+    });
 }
 
 function addGameElement(id) {
@@ -279,8 +172,8 @@ function addGameElement(id) {
     const playerReadyStatuses = data['playerIsReadyStatuses']
     const maxPlayers = data['maxPlayers']
 
+    // Bring in the general configurations for descriptions
     const gameBaseConfigs = JSON.parse(localStorage.getItem('playableGames')).filter(item => item['game'].replace(/\s+/g, "").toLowerCase() === game)[0]['configurations']
-    console.log(gameBaseConfigs)
 
     // ============================================================ //
     // Create the top container for the game (The actual active game) //
@@ -312,9 +205,9 @@ function addGameElement(id) {
     header.classList.add('game-header');
     const deleteGameText = (host === user) ? `<span><span class='delete' onclick='deleteGame(this, "${game}")'>🗑️</span></span>` : `<span>️</span>`
     let buttonText = null
-    if (gameStatus === 'Active') { buttonText = '<button>Resume</button>'}
-    else if (gameStatus === 'Paused') {buttonText = (user === host) ? '<button>Resume</button>' : ''}
-    else if (gameStatus === 'Joinable') {buttonText = (user === host) ? '<button>Start</button>' : ((players.includes(user)) ? '' : '<button>Join</button>')}
+    if (gameStatus === 'Active') { buttonText = '<button>Resume</button>' }
+    else if (gameStatus === 'Paused') { buttonText = (user === host) ? '<button>Resume</button>' : '' }
+    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? '<button>Start</button>' : ((players.includes(user)) ? '' : '<button>Join</button>') }
     header.innerHTML = `
         <span>${gameName}</span>
         <span class="player-count">${players.length} / ${maxPlayers} playe${(maxPlayers > 1) ? 'rs' : 'r'}</span>
@@ -334,7 +227,7 @@ function addGameElement(id) {
     // Don't add the game details for an active game //
     // ============================================= //
     if (gameStatus === 'Active' || gameStatus === 'Paused') {
-        const playersContainer = createplayersElement(players, playerReadyStatuses, gameStatus, host, user)
+        const playersContainer = createplayersElement(players, playerReadyStatuses, gameStatus, host, user, id)
         details.appendChild(playersContainer)
         return
     }
@@ -356,44 +249,67 @@ function addGameElement(id) {
             mainSettings.id = 'mainSettings'
             mainSettings.classList.add('setting-row');
 
-            // For each set of configurations, split it into two parts (label and select)
-            const left = document.createElement('div')
-            left.classList.add('left')
-            const right = document.createElement('div')
-            right.classList.add('right')
-            const farRight = document.createElement('div')
-            farRight.classList.add('farRight')
-            mainSettings.appendChild(left)
-            mainSettings.appendChild(right)
-            mainSettings.appendChild(farRight)
-
             // =================================== //
             // Add the people involved in the game
             // =================================== //
             if (section === 'Game') {
-                const playersContainer = createplayersElement(players, playerReadyStatuses, gameStatus, host, user)
+                const playersContainer = createplayersElement(players, playerReadyStatuses, gameStatus, host, user, id)
                 settingContainer.appendChild(playersContainer)
             }
-                
+
 
             // for items in a section (second level of the json object)
             for (const [optionName, optionData] of orderObject(options, 'order')) {
                 if (optionName !== "Name" || !optionData.value.includes("s Game")) {
-                    const label = document.createElement('p');
+                    const label = (user === host) ? document.createElement('p') : document.createElement('label')
+                    // const label = document.createElement('p')
                     label.textContent = optionName.replace(/_/g, ' ');
 
-                    const select = document.createElement('p');
-                    select.textContent = optionData.value
+                    const isOptions = section in gameBaseConfigs && optionName in gameBaseConfigs[section] && Array.isArray(gameBaseConfigs[section][optionName].options) && gameBaseConfigs[section][optionName].options.length > 0;
+                    const isRange = section in gameBaseConfigs && optionName in gameBaseConfigs[section] && gameBaseConfigs[section][optionName]?.min !== undefined && gameBaseConfigs[section][optionName]?.max !== undefined
 
-                    // Add the description information
-                    if (section in gameBaseConfigs && optionName in gameBaseConfigs[section] && 'description' in gameBaseConfigs[section][optionName]) {
-                            const info = document.createElement('p')
-                            info.innerHTML = `<p title = "${gameBaseConfigs[section][optionName]['description']}" style = "cursor: help; margin-left: 0.25em;">ℹ️</p>`
-                            farRight.appendChild(info)
+                    const isAlterable = (user === host && (isOptions || isRange))
+                    const select = (isAlterable) ? document.createElement('select') : document.createElement('p');
+                    if (isAlterable) {
+                        const baseData = gameBaseConfigs[section][optionName]
+                        select.name = optionName;
+                        let defaultValue = baseData.default;
+
+                        if (baseData.options) {
+                            let optionsList = baseData.options;
+
+                            optionsList.forEach(opt => {
+                                const option = document.createElement('option');
+                                option.value = opt;
+                                option.textContent = String(opt);
+                                if (opt === optionData.value) option.selected = true;
+                                select.appendChild(option);
+                            });
+                        } else if (baseData.min !== undefined && baseData.max !== undefined) {
+                            const step = baseData.step ?? 1;
+                            for (let val = baseData.min; val <= baseData.max; val += step) {
+                                const option = document.createElement('option');
+                                option.value = val;
+                                option.textContent = baseData?.units !== undefined ? formatDuration(val) : val;
+                                if (val === defaultValue) option.selected = true;
+                                select.appendChild(option);
+                            }
+                        }
+                    }
+                    else {
+                        select.textContent = optionData.value
                     }
 
-                    left.appendChild(label)
-                    right.appendChild(select)
+
+                    // Add the description information
+                    const info = document.createElement('p')
+                    if (section in gameBaseConfigs && optionName in gameBaseConfigs[section] && 'description' in gameBaseConfigs[section][optionName]) {
+                        info.innerHTML = `<p title = "${gameBaseConfigs[section][optionName]['description']}" style = "cursor: help; margin-left: 0.25em;">ℹ️</p>`
+                    }
+
+                    mainSettings.appendChild(label)
+                    mainSettings.appendChild(select)
+                    mainSettings.appendChild(info)
                 }
 
                 // settingContainer.appendChild(left)
@@ -520,7 +436,7 @@ function orderObject(obj, key) {
 
 document.addEventListener('click', (event) => {
     // If you clicked inside of the game-details, do nothing
-    if (   event.target.closest('.game-details')
+    if (event.target.closest('.game-details')
         || event.target.closest('.delete')
         || event.target.closest('button')) { return; }
 
