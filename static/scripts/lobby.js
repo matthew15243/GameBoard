@@ -14,8 +14,13 @@ socket.on('game_update', (data) => {
 });
 
 function loadGames(game) {
-    currentGame = game.replace(/\s+/g, "").toLowerCase();
+    // Close the menu
+	const body = document.body;
+	body.classList.remove('sidebar-open');
+
+    const currentGame = game.replace(/\s+/g, "").toLowerCase();
     const games = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == currentGame && (item.status === 'Joinable' || item.players.includes(user)))
+
     gameCounts[currentGame] = games.length;
     document.getElementById(`${currentGame}-count`).textContent = games.length;
 
@@ -50,10 +55,27 @@ function loadGames(game) {
     activeGames.appendChild(paused)
     activeGames.appendChild(joinable)
 
-    games.forEach(g => addGameElement(g.id));
+    const sortedGames = games
+    .sort((a, b) => {
+      const aUserIn = a.players.includes(user);
+      const bUserIn = b.players.includes(user);
+  
+      // Prioritize games where user is a player
+      if (aUserIn !== bUserIn) {
+        return aUserIn ? -1 : 1;
+      }
+  
+      // Then sort by available spots (ascending)
+      const aSpotsLeft = a.maxPlayers - a.players.length;
+      const bSpotsLeft = b.maxPlayers - b.players.length;
+  
+      return aSpotsLeft - bSpotsLeft;
+    });
+
+    sortedGames.forEach(g => addGameElement(g.id));
 }
 
-function formatDuration(seconds) {
+function formatDuration(seconds, useFullUnits = true) {
     const units = [
         { label: 'day', value: 86400 },
         { label: 'hour', value: 3600 },
@@ -66,7 +88,8 @@ function formatDuration(seconds) {
     for (const { label, value } of units) {
         const unitAmount = Math.floor(seconds / value);
         if (unitAmount > 0) {
-            parts.push(`${unitAmount} ${label}${unitAmount > 1 ? 's' : ''}`);
+            if (useFullUnits) { parts.push(`${unitAmount} ${label}${unitAmount > 1 ? 's' : ''}`) }
+            else { parts.push(`${unitAmount} ${label[0]}`) }
             seconds %= value;
         }
     }
@@ -75,7 +98,8 @@ function formatDuration(seconds) {
     if (parts.length === 1) return parts[0];
 
     // Join with commas and 'and' before the last part
-    return parts.slice(0, -1).join(', ') + ' and ' + parts.slice(-1);
+    if (useFullUnits) { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
+    else { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
 }
 
 function createplayersElement(players, playerReadyStatuses, gameStatus, host, user, id) {
@@ -158,6 +182,12 @@ function closeGames() {
     });
 }
 
+/**
+ * This will add all information for an Active, Paused, or Joinable game directly to the DOM
+ *
+ * @param {number} id - The id (as it comes from supabase) for the given game
+ * @returns {void} - This builds all necessary elements and adds them directly to the DOM
+ */
 function addGameElement(id) {
     // Pull the configurations from the local storage
     const data = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]
@@ -261,19 +291,41 @@ function addGameElement(id) {
             // for items in a section (second level of the json object)
             for (const [optionName, optionData] of orderObject(options, 'order')) {
                 if (optionName !== "Name" || !optionData.value.includes("s Game")) {
-                    const label = (user === host) ? document.createElement('p') : document.createElement('label')
-                    // const label = document.createElement('p')
+                    const label = document.createElement('p')
                     label.textContent = optionName.replace(/_/g, ' ');
 
-                    const isOptions = section in gameBaseConfigs && optionName in gameBaseConfigs[section] && Array.isArray(gameBaseConfigs[section][optionName].options) && gameBaseConfigs[section][optionName].options.length > 0;
-                    const isRange = section in gameBaseConfigs && optionName in gameBaseConfigs[section] && gameBaseConfigs[section][optionName]?.min !== undefined && gameBaseConfigs[section][optionName]?.max !== undefined
+                    const baseData = gameBaseConfigs?.[section]?.[optionName]
+
+                    // ======================== //
+                    //  Check for Dependencies  //
+                    // ======================== //
+                    let dependencyMet = true
+                    if ('dependency' in baseData) {
+                        Object.entries(baseData.dependency).forEach(([key, value]) => {
+                            // Get the current value in the DOM
+                            let DOMValue = Array.from(mainSettings.querySelectorAll('p')).find(
+                                el => el.textContent.trim() === key.replace(/_/g, ' ')
+                              );
+                            DOMValue = DOMValue?.nextElementSibling;
+                            DOMValue = (DOMValue.tagName === 'P') ? DOMValue.textContent.trim() : DOMValue.value
+
+                            if (DOMValue !== value) {
+                                dependencyMet = false
+                                return
+                            }
+                        })
+                    }
+                    if (!dependencyMet) { continue }
+
+                    const isOptions = baseData !== undefined && Array.isArray(baseData.options) && baseData.options.length > 0;
+                    const isRange = baseData !== undefined && baseData?.min !== undefined && baseData?.max !== undefined
 
                     const isAlterable = (user === host && (isOptions || isRange))
                     const select = (isAlterable) ? document.createElement('select') : document.createElement('p');
+
                     if (isAlterable) {
-                        const baseData = gameBaseConfigs[section][optionName]
-                        select.name = optionName;
                         let defaultValue = baseData.default;
+                        select.name = optionName;
 
                         if (baseData.options) {
                             let optionsList = baseData.options;
@@ -281,7 +333,7 @@ function addGameElement(id) {
                             optionsList.forEach(opt => {
                                 const option = document.createElement('option');
                                 option.value = opt;
-                                option.textContent = String(opt);
+                                option.textContent = baseData?.units !== undefined ? formatDuration(opt) : opt
                                 if (opt === optionData.value) option.selected = true;
                                 select.appendChild(option);
                             });
@@ -297,7 +349,19 @@ function addGameElement(id) {
                         }
                     }
                     else {
-                        select.textContent = optionData.value
+                        // select.textContent = optionData.value
+                        select.textContent = baseData?.units !== undefined ? formatDuration(optionData.value) : optionData.value;
+                    }
+
+                    // Check for additional options
+                    if ('addedOptions' in baseData) {
+                        baseData.addedOptions.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt
+                            option.textContent = baseData?.units !== undefined ? formatDuration(opt) : opt
+                            if (opt === optionData.value) option.selected = true;
+                            select.appendChild(option);
+                        });
                     }
 
 
@@ -326,7 +390,7 @@ function addGameElement(id) {
 function createGame() {
     if (!currentGame) return;
     // addGameElement(`Game ${gameCounts[currentGame] + 1}`, 1);
-    addGameElement(currentGame, 'dummy');
+    addGameElement(currentGame);
     gameCounts[currentGame]++;
     document.getElementById(`${currentGame}-count`).textContent = gameCounts[currentGame];
 }
@@ -391,15 +455,19 @@ function getActiveGames() {
 }
 
 function resetGameList(games) {
-    const gameList = document.getElementById("gamesList");
+    const sidebar = document.getElementById('sidebar')
+    const gameList = document.createElement('ul')
+    gameList.id = "gamesList"
+    gameList.className = "game-list"
+    // const gameList = document.getElementById("gamesList");
 
     gameList.innerHTML = "";  // Clear existing list
+    sidebar.appendChild(gameList)
 
     games.forEach(game => {
         const li = document.createElement("li");
-        li.textContent = game.game;
         const gameId = game.game.replace(/\s+/g, "").toLowerCase()
-        li.textContent = game.game
+        li.innerHTML = `<span>${game.game}</span>`
         const currentCount = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == gameId && (item.status === 'Joinable' || item.players.includes(user))).length
 
         // Add the game count to the li-element
@@ -460,5 +528,6 @@ function removePlayer(name) {
 }
 
 // Start Up
+createHeader(true)
 getPlayableGames()
 getActiveGames()

@@ -69,6 +69,11 @@ def login():
 def lobby():
 	return render_template('lobby.html')
 
+@app.route('/headertest/')
+@login_required_with_redirect
+def headertest():
+	return render_template('headertest.html')
+
 @app.route('/')
 @app.route('/home/')
 def home():
