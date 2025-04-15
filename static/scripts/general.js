@@ -72,9 +72,6 @@ function createHeader(includeSidebar = false) {
 	const expandBtn = document.getElementById('expand-btn');
 
 	if (includeSidebar) {
-		// Start with the sidebar open
-		body.classList.add('sidebar-open');
-
 		// Update the side bar width
 		function updateSidebarWidth() {
 			const computedWidth = `${sidebar.offsetWidth}px`;

@@ -66,6 +66,12 @@ body {
     text-align: left;
 }
 
+.active-games span {
+    display: flex;
+    text-align: left;
+    align-items: center;
+}
+
 .activeGame {
     display: block;
     background-color: #ccc;
@@ -161,8 +167,12 @@ button {
     cursor: pointer;
 }
 
-button:hover {
+button:hover:not(:disabled) {
     background: #0056b3;
+}
+
+button:disabled {
+    cursor: default;
 }
 
 .configSectionName {
@@ -183,6 +193,10 @@ button:hover {
     justify-self: center;
 }
 
+.playerRow .removePlayer {
+    cursor: pointer;
+}
+
 .drag-placeholder {
     height: 3px;
     background-color: blue;
@@ -191,7 +205,7 @@ button:hover {
 
 .playerRow {
     display: grid;
-    grid-template-columns: 1fr 6fr 2fr 1fr;
+    grid-template-columns: 1fr 5fr 2fr 1fr;
     gap: 0.3rem;
     padding-left: 0.25em;
     white-space: nowrap;
@@ -207,12 +221,19 @@ button:hover {
 
 .playerRowStatic {
     display: grid;
-    grid-template-columns: 1fr 6fr 2fr 1fr;
+    grid-template-columns: 1fr 5fr 2fr 1fr;
     gap: 0.3rem;
     padding-left: 0.25em;
     white-space: nowrap;
     align-items: center;
     border: 1px solid transparent;
+}
+
+.computerRowStatic {
+    display: grid;
+    grid-template-columns: auto;
+    white-space: nowrap;
+    align-items: center;
 }
 
 #playerHeaders {

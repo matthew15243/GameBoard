@@ -1,9 +1,7 @@
-let selectedGameElement = null;
 const activeGames = document.getElementById("activeGames");
 const gameCounts = {};
-const maxPlayers = 6;
-let currentGame = "";
 const user = JSON.parse(localStorage.getItem('user')).username
+const computerDifficulties = ['Easy', 'Normal', 'Hard']
 
 const socket = io.connect(`${BASE_URL}`);
 
@@ -19,7 +17,7 @@ function loadGames(game) {
 	body.classList.remove('sidebar-open');
 
     const currentGame = game.replace(/\s+/g, "").toLowerCase();
-    const games = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == currentGame && (item.status === 'Joinable' || item.players.includes(user)))
+    const games = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == currentGame && (item.status === 'Joinable' || item.players.some(p => p.Name === user)))
 
     gameCounts[currentGame] = games.length;
     document.getElementById(`${currentGame}-count`).textContent = games.length;
@@ -57,8 +55,8 @@ function loadGames(game) {
 
     const sortedGames = games
     .sort((a, b) => {
-      const aUserIn = a.players.includes(user);
-      const bUserIn = b.players.includes(user);
+      const aUserIn = a.players.some(p => p.Name === user);
+      const bUserIn = b.players.some(p => p.Name === user);
   
       // Prioritize games where user is a player
       if (aUserIn !== bUserIn) {
@@ -102,7 +100,85 @@ function formatDuration(seconds, useFullUnits = true) {
     else { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
 }
 
-function createplayersElement(players, playerReadyStatuses, gameStatus, host, user, id) {
+function swapDifficulty(element) {
+    const difficulty = element.textContent
+    const index = computerDifficulties.indexOf(difficulty)
+    const newDifficulty = (index < computerDifficulties.length - 1) ? computerDifficulties[index + 1] : computerDifficulties[0];
+
+    element.textContent = newDifficulty
+}
+
+function addComputer(element, gameStatus, host) {
+    const botNames = [
+        "AlphaBot", "BotimusPrime", "DataStorm", "RoboRex", "CircuitSurge", "QuantumBot", "Botzilla", "RAMbo", "BitBandit", "ByteSize", "AutoMate"
+    ];
+
+    const container = element.closest('.playersContainer')
+    const playerCount = container.children.length - 2
+    const totalCount = parseInt(element.closest('.game-details').querySelector(`select[name="Players"]`).value)
+
+    if (totalCount >= (playerCount + 1)) {
+        // Get the current players
+        let names = []
+        for (const child of container.children) {
+            const span = child.querySelectorAll('span')[1];
+            if (span) {
+                let name = span.textContent.replace(' Hard', '').replace(' Easy', '').replace(' Normal', '').replace(' (Host)', '')
+                names.push(name)
+            }
+        }
+
+        let randomName;
+
+        do {
+            randomName = botNames[Math.floor(Math.random() * botNames.length)];
+        } while (names.includes(randomName));
+
+        const div = createplayersElement({"Name" : randomName, "Type" : "Computer", "Difficulty" : "Normal"}, {randomName: "true"}, gameStatus, host)
+        container.insertBefore(div, container.lastChild)
+    }
+    else {
+        alert(`Please increase the player count or remove a player from the game before adding a computer`)
+    }
+
+    adjustPlayerCount(element)
+}
+
+function createplayersElement(playerObject, playerReadyStatuses, gameStatus, host) {
+    const name = playerObject.Name
+    const div = document.createElement('label');
+    div.className = (user === host && gameStatus === "Joinable") ? 'playerRow' : 'playerRowStatic'
+
+    // Add the first span, sort symbol if the user is the same as the host
+    const reorder = document.createElement('span')
+    if (host === user && gameStatus === "Joinable") { reorder.textContent = '≡'}
+    else { reorder.textContent = ' '}
+    div.appendChild(reorder)
+
+    // Add the name to the player div element
+    playerName = document.createElement('span')
+    playerName.innerHTML = `${name}${name === host ? ' (Host)' : ''}${playerObject?.Type === 'Computer' ? ' <button style = "margin-left: 2em; padding: 0.25em 1em;"' + ((gameStatus === "Joinable" && host === user) ? ' onclick="swapDifficulty(this)">' : ' disabled>') + playerObject?.Difficulty + '</button>' : ''}`;
+    div.appendChild(playerName)
+
+    // Add the player status check box
+    const playerStatus = document.createElement('input')
+    playerStatus.type = 'checkbox'
+    playerStatus.id = name
+    playerStatus.checked = playerReadyStatuses[name]
+    playerStatus.disabled = !(name === user && gameStatus !== 'Active')
+    div.appendChild(playerStatus)
+
+    // Add the ✖️ for removing / booting a player
+    if (host === user && gameStatus === "Joinable") {
+        const bootPlayer = document.createElement('span')
+        if (name !== host) { bootPlayer.innerHTML = `<span class='removePlayer' onclick="removePlayer(this, event)">✖️</span>` }
+        div.appendChild(bootPlayer)
+    }
+
+    return div
+}
+
+function createplayersElements(players, playerReadyStatuses, gameStatus, host, id) {
     const playersContainer = document.createElement('div')
     playersContainer.id = `playersContainer${id}`
     playersContainer.classList.add('playersContainer')
@@ -138,38 +214,32 @@ function createplayersElement(players, playerReadyStatuses, gameStatus, host, us
         div.appendChild(playerStatus)
     }
 
-    players.forEach((name) => {
+    // Add the 'Add Computer' button
+    if (gameStatus === "Joinable" && user === host)
+    {
         const div = document.createElement('label');
-        div.className = (user === host && gameStatus === "Joinable") ? 'playerRow' : 'playerRowStatic'
+        div.className = 'computerRowStatic'
         playersContainer.appendChild(div);
 
         // Add the first span, sort symbol if the user is the same as the host
-        const reorder = document.createElement('span')
-        // (host === user) ? reorder.textContent = '≡' : reorder.textContent = ' '
-        if (host === user && gameStatus === "Joinable") { reorder.textContent = '≡'}
-        else { reorder.textContent = ' '}
-        div.appendChild(reorder)
+        const addComputerElement = document.createElement('button')
+        addComputerElement.textContent = 'Add Computer'
+        addComputerElement.onclick = function () {
+            addComputer(this, gameStatus, host)
+        }
+        div.appendChild(addComputerElement)
+    }
 
-        // Add the name to the player div element
-        playerName = document.createElement('span')
-        playerName.textContent = `${name}${name === host ? ' (host)' : ''}`;
-        div.appendChild(playerName)
-
-        // Add the player status check box
-        const playerStatus = document.createElement('input')
-        playerStatus.type = 'checkbox'
-        playerStatus.id = name
-        playerStatus.checked = playerReadyStatuses[name]
-        playerStatus.disabled = !(name === user && gameStatus !== 'Active')
-        div.appendChild(playerStatus)
-
-        // Add the ✖️ for removing / booting a player
-        if (host === user && gameStatus === "Joinable") {
-            const removePlayer = document.createElement('span')
-            if (name !== host) { removePlayer.innerHTML = `<span onclick="removePlayer('${name}')">✖️</span>` }
-            div.appendChild(removePlayer)
+    players.forEach((playerObject) => {
+        const div = createplayersElement(playerObject, playerReadyStatuses, gameStatus, host)
+        if (gameStatus === "Joinable" && host === user) {
+            playersContainer.insertBefore(div, playersContainer.lastChild)
+        }
+        else {
+            playersContainer.appendChild(div);
         }
     });
+        
 
     return playersContainer
 }
@@ -201,6 +271,9 @@ function addGameElement(id) {
     const createTime = data['created_at']
     const playerReadyStatuses = data['playerIsReadyStatuses']
     const maxPlayers = data['maxPlayers']
+    const minPlayers = data['minPlayers']
+
+    let previousValues = new WeakMap()
 
     // Bring in the general configurations for descriptions
     const gameBaseConfigs = JSON.parse(localStorage.getItem('playableGames')).filter(item => item['game'].replace(/\s+/g, "").toLowerCase() === game)[0]['configurations']
@@ -210,7 +283,7 @@ function addGameElement(id) {
     // ============================================================ //
     const container = document.createElement('div');
     container.classList.add('game-item');
-    if (players.includes(user)) { container.classList.add('included'); }
+    if (players.some(p => p.Name === user)) { container.classList.add('included'); }
     container.id = id
 
     // Add the container to the Game Status container
@@ -237,7 +310,7 @@ function addGameElement(id) {
     let buttonText = null
     if (gameStatus === 'Active') { buttonText = '<button>Resume</button>' }
     else if (gameStatus === 'Paused') { buttonText = (user === host) ? '<button>Resume</button>' : '' }
-    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? '<button>Start</button>' : ((players.includes(user)) ? '' : '<button>Join</button>') }
+    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? '<button>Start</button>' : ((players.some(p => p.Name === user)) ? '' : '<button onclick = "joinGame(this)">Join</button>') }
     header.innerHTML = `
         <span>${gameName}</span>
         <span class="player-count">${players.length} / ${maxPlayers} playe${(maxPlayers > 1) ? 'rs' : 'r'}</span>
@@ -257,7 +330,7 @@ function addGameElement(id) {
     // Don't add the game details for an active game //
     // ============================================= //
     if (gameStatus === 'Active' || gameStatus === 'Paused') {
-        const playersContainer = createplayersElement(players, playerReadyStatuses, gameStatus, host, user, id)
+        const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, user, id)
         details.appendChild(playersContainer)
         return
     }
@@ -276,14 +349,14 @@ function addGameElement(id) {
 
             // The principal settings (everything in the configurations object from supabase)
             const mainSettings = document.createElement('div')
-            mainSettings.id = 'mainSettings'
+            // mainSettings.id = 'mainSettings'
             mainSettings.classList.add('setting-row');
 
             // =================================== //
             // Add the people involved in the game
             // =================================== //
             if (section === 'Game') {
-                const playersContainer = createplayersElement(players, playerReadyStatuses, gameStatus, host, user, id)
+                const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, id)
                 settingContainer.appendChild(playersContainer)
             }
 
@@ -319,51 +392,57 @@ function addGameElement(id) {
 
                     const isOptions = baseData !== undefined && Array.isArray(baseData.options) && baseData.options.length > 0;
                     const isRange = baseData !== undefined && baseData?.min !== undefined && baseData?.max !== undefined
-
                     const isAlterable = (user === host && (isOptions || isRange))
+
+                    // Create the select element
                     const select = (isAlterable) ? document.createElement('select') : document.createElement('p');
 
                     if (isAlterable) {
-                        let defaultValue = baseData.default;
                         select.name = optionName;
 
-                        if (baseData.options) {
-                            let optionsList = baseData.options;
+                        const acceptableOptions = getAcceptableValues(game, section, optionName)
+                        acceptableOptions.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt;
+                            option.textContent = baseData?.units !== undefined ? formatDuration(opt) : opt
+                            if (opt === optionData.value) { option.selected = true }
+                            select.appendChild(option);
+                        })
 
-                            optionsList.forEach(opt => {
-                                const option = document.createElement('option');
-                                option.value = opt;
-                                option.textContent = baseData?.units !== undefined ? formatDuration(opt) : opt
-                                if (opt === optionData.value) option.selected = true;
-                                select.appendChild(option);
-                            });
-                        } else if (baseData.min !== undefined && baseData.max !== undefined) {
-                            const step = baseData.step ?? 1;
-                            for (let val = baseData.min; val <= baseData.max; val += step) {
-                                const option = document.createElement('option');
-                                option.value = val;
-                                option.textContent = baseData?.units !== undefined ? formatDuration(val) : val;
-                                if (val === defaultValue) option.selected = true;
-                                select.appendChild(option);
-                            }
+                        // Keep track of the initial / old values + add event listener to watch for changes
+                        if (optionName.toLowerCase() === 'players') {
+                            previousValues.set(select, select.value)
+
+                            select.addEventListener('change', event => {
+                                const newValue = event.target.value;
+                                const oldValue = previousValues.get(select);
+                                const minimumPlayers = gameBaseConfigs?.Game?.Players?.min
+                                const maximumPlayers = gameBaseConfigs?.Game?.Players?.max
+
+                                const totalCount = parseInt(select.parentElement.querySelector(`select[name="Players"]`).value)
+                                // const gameHeader = select.closest('.game-item').querySelector(`span.player-count`)
+                                const playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 2
+                            
+                                // Example validation logic
+                                if (totalCount > maximumPlayers || totalCount < minimumPlayers) {
+                                    alert(`Sorry, You can't have that many players: ${minimumPlayers} <= Players + Computers <= ${maximumPlayers}`);
+                                    select.value = oldValue;
+                                } else if (totalCount < playerCount) {
+                                    alert(`Sorry, You can't have more players in the game than the game settings allow. Please remove a player before lowering the ${optionName.toLowerCase()} count`)
+                                    select.value = oldValue;
+                                } else {
+                                    previousValues.set(select, newValue);
+                                    // gameHeader.textContent = `${playerCount} / ${totalCount} playe${(totalCount > 1) ? 'rs' : 'r'}`
+                                    adjustPlayerCount(select)
+                                }
+                              });
                         }
+
                     }
                     else {
                         // select.textContent = optionData.value
                         select.textContent = baseData?.units !== undefined ? formatDuration(optionData.value) : optionData.value;
                     }
-
-                    // Check for additional options
-                    if ('addedOptions' in baseData) {
-                        baseData.addedOptions.forEach(opt => {
-                            const option = document.createElement('option');
-                            option.value = opt
-                            option.textContent = baseData?.units !== undefined ? formatDuration(opt) : opt
-                            if (opt === optionData.value) option.selected = true;
-                            select.appendChild(option);
-                        });
-                    }
-
 
                     // Add the description information
                     const info = document.createElement('p')
@@ -376,8 +455,6 @@ function addGameElement(id) {
                     mainSettings.appendChild(info)
                 }
 
-                // settingContainer.appendChild(left)
-                // settingContainer.appendChild(right)
                 settingContainer.appendChild(mainSettings)
                 details.appendChild(settingContainer);
 
@@ -387,21 +464,36 @@ function addGameElement(id) {
 
 }
 
-function createGame() {
-    if (!currentGame) return;
-    // addGameElement(`Game ${gameCounts[currentGame] + 1}`, 1);
-    addGameElement(currentGame);
-    gameCounts[currentGame]++;
-    document.getElementById(`${currentGame}-count`).textContent = gameCounts[currentGame];
+function adjustPlayerCount(element) {
+    const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
+    const gameHeader = element.closest('.game-item').querySelector(`span.player-count`)
+
+    let playerCount = undefined
+    let totalCount = undefined
+
+    if (user !== host) { playerCount = element.closest('.game-item').querySelector('.playersContainer').children.length - 1 }
+    else { playerCount = element.closest('.game-item').querySelector('.playersContainer').querySelectorAll('.playerRow').length }
+
+    if (user !== host) { totalCount = parseInt(Array.from(element.closest('.game-item').querySelectorAll('p')).find(el => el.textContent.trim() === 'Players').nextElementSibling.textContent) }
+    else { totalCount = parseInt(element.closest('.game-item').querySelector(`select[name="Players"]`).value) }
+
+    gameHeader.textContent = `${playerCount} / ${totalCount} playe${(totalCount > 1) ? 'rs' : 'r'}`
+
 }
 
-function joinGame() {
-    if (!selectedGameElement) return;
-    const playerCountSpan = selectedGameElement.querySelector(".player-count");
-    let currentPlayers = parseInt(playerCountSpan.textContent.match(/\d+/)[0], 10);
-    if (currentPlayers < maxPlayers) {
-        currentPlayers++;
-        playerCountSpan.textContent = `(${currentPlayers} players)`;
+function createGame() {
+}
+
+function joinGame(element) {
+    const playerCount = element.closest('.game-item').querySelector('.playersContainer').children.length - 1
+    const totalCount = parseInt(Array.from(element.closest('.game-item').querySelectorAll('p')).find(el => el.textContent.trim() === 'Players').nextElementSibling.textContent)
+    const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
+
+    if (playerCount < totalCount) {
+        const container = element.closest('.game-item').querySelector('.playersContainer')
+        const div = createplayersElement({"Name" : user, "Type" : "Human"}, {user: "false"}, "Joinable", host)
+        container.appendChild(div)
+        adjustPlayerCount(div)
     }
 }
 
@@ -441,25 +533,27 @@ function getPlayableGames() {
         .catch(error => console.error("Failed to fetch games:", error));
 }
 
-function getActiveGames() {
-    fetch(`${BASE_URL}/lobby/get_active_games`)  // Change to your backend URL
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                console.error("Error fetching games:", data.error);
-                return;
-            }
-            localStorage.setItem("activeGames", JSON.stringify(data));
-        })
-        .catch(error => console.error("Failed to fetch games:", error));
-}
+async function getActiveGames() {
+    try {
+      const response = await fetch(`${BASE_URL}/lobby/get_active_games`);
+      const data = await response.json();
+  
+      if (data.error) {
+        console.error("Error fetching games:", data.error);
+        return;
+      }
+  
+      localStorage.setItem("activeGames", JSON.stringify(data));
+    } catch (error) {
+      console.error("Failed to fetch games:", error);
+    }
+  }
 
 function resetGameList(games) {
     const sidebar = document.getElementById('sidebar')
     const gameList = document.createElement('ul')
     gameList.id = "gamesList"
     gameList.className = "game-list"
-    // const gameList = document.getElementById("gamesList");
 
     gameList.innerHTML = "";  // Clear existing list
     sidebar.appendChild(gameList)
@@ -468,7 +562,7 @@ function resetGameList(games) {
         const li = document.createElement("li");
         const gameId = game.game.replace(/\s+/g, "").toLowerCase()
         li.innerHTML = `<span>${game.game}</span>`
-        const currentCount = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == gameId && (item.status === 'Joinable' || item.players.includes(user))).length
+        const currentCount = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == gameId && (item.status === 'Joinable' || item.players.some(p => p.Name === user))).length
 
         // Add the game count to the li-element
         let span = document.createElement("span");
@@ -481,6 +575,11 @@ function resetGameList(games) {
         li.onclick = () => loadGames(game.game);
         gameList.appendChild(li);
     });
+
+	// Start with the sidebar open
+	const body = document.body;
+	body.classList.add('sidebar-open');
+
 }
 
 // Helper Functions
@@ -523,11 +622,48 @@ document.addEventListener('click', (event) => {
 
 })
 
-function removePlayer(name) {
-    alert(`Trying to remove ${name}`)
+function removePlayer(element, event) {
+    event.stopPropagation();
+    const tempElement = element.closest('.playerRow').parentElement
+    element.closest('.playerRow').remove()
+    adjustPlayerCount(tempElement)
+}
+
+function range(start, end, step = 1) {
+    const result = [];
+    for (let i = start; (step > 0 ? i < end : i > end); i += step) {
+      result.push(i);
+    }
+    return result;
+}
+
+function getAcceptableValues(game, section, option) {
+    const configs = JSON.parse(localStorage.getItem('playableGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == game.replace(/\s+/g, "").toLowerCase())[0].configurations
+
+    let optionConfigs = configs?.[section.replace(/\s+/g, "_")]?.[option]
+    let values = []
+
+    if (optionConfigs?.min !== undefined && optionConfigs?.max !== undefined) {
+        values.push(...range(optionConfigs.min, optionConfigs.max + 1, (optionConfigs?.step !== undefined) ? optionConfigs.step : 1))
+    }
+    else if (optionConfigs?.options) {
+        values.push(...optionConfigs.options)
+    }
+    else {
+        console.log("Houston... we have a problem")
+        console.log(`For the game of ${game}, there seems to be a new config or something wrong with the current configurations`)
+        console.log(`Min: ${optionConfigs?.min}, Max: ${optionConfigs?.max}, Options: ${optionConfigs?.options}, Added Options: ${optionConfigs?.addedOptions}`)
+    }
+
+    // Add the added options
+    if (optionConfigs?.addedOptions) {
+        values.push(...optionConfigs.addedOptions)
+    }
+
+    return values
 }
 
 // Start Up
 createHeader(true)
-getPlayableGames()
 getActiveGames()
+getPlayableGames()
