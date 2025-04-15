@@ -1,3 +1,5 @@
+createHeader()
+
 document.addEventListener("DOMContentLoaded", function () {
     var socket = io();  // Connect to Flask-SocketIO server
 

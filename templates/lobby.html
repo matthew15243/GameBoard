@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game Lobby</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles/general.css') }}">
 	<link rel="stylesheet" href="{{ url_for('static', filename='styles/lobby.css') }}">
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -12,12 +13,6 @@
 	<script src = "{{ url_for('static', filename = 'scripts/lobby.js')}}" defer></script>
 </head>
 <body>
-    <div class="sidebar">
-        <ul class="games-list" id="gamesList">
-        </ul>
-        <button onclick="logout()">log out</button>
-    </div>
-    
     <div class="main">
         <div class="active-games" id="activeGames">Select a game to see available matches.</div>
         <div class="buttons">
