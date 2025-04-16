@@ -4,6 +4,7 @@ from routes.hearts import hearts_bp
 from routes.auth import auth_bp
 from routes.general import general_bp
 from routes.lobby import lobby_bp
+from routes.profile import profile_bp
 from supabase import Client, create_client
 import os
 from dotenv import load_dotenv
@@ -27,6 +28,7 @@ app.register_blueprint(hearts_bp, url_prefix='/hearts') # Get the Hearts route
 app.register_blueprint(auth_bp, url_prefix='/auth') # Get the authorization route
 app.register_blueprint(general_bp, url_prefix='/general') # Get the general functions route
 app.register_blueprint(lobby_bp, url_prefix='/lobby') # Get the general functions route
+app.register_blueprint(profile_bp, url_prefix='/profile') # Get the profile functions route
 
 # Web Hooks
 @app.route('/supabase-webhook', methods=['POST'])
@@ -78,6 +80,16 @@ def home():
 @login_required_with_redirect
 def playHearts():
 	return render_template('hearts.html')
+
+@app.route('/profile/')
+@login_required_with_redirect
+def settings():
+	return render_template('profile.html')
+
+@app.route('/profile/friends')
+@login_required_with_redirect
+def settings():
+	return render_template('friends.html')
 
 if __name__ == ('__main__'):
 	# socketio.run(app, host = '127.0.0.1', port = '8080', debug = True)

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles/profile.css') }}">
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src = "https://cdn.socket.io/4.0.0/socket.io.min.js" defer></script>
+	<script src = "{{ url_for('static', filename = 'scripts/general.js')}}" defer></script>
+	<script src = "{{ url_for('static', filename = 'scripts/profile.js')}}" defer></script>
+</head>
+<body>
+    <div id="sidebar">
+        <ul class="games-list" id="gamesList">
+            <li>Friends</li>
+            <li>Settings</li>
+        </ul>
+        <button onclick="logout()">log out</button>
+    </div>
+    
+    {% block testTemplateThing %}{% endblock %}
+
+    <div class="main">
+        <!-- <div class="active-games" id="header-bar">Settings</div> -->
+        <div class="active-games" id="header-bar">Settings</div>
+        
+        <div id="settings-content">
+            <ul id="settings-list">
+                <li>Change Username</li>
+                <li>Change Password</li>
+                <li>Change Email</li>
+                <li>Change Card Decks</li>
+                <li></li>
+            </ul>
+
+        </div>
+
+        <div class="buttons">
+            <button onclick="createGame()">Create</button>
+            <button onclick="viewRules()">Rules</button>
+        </div>
+    </div>
+</body>
+</html>

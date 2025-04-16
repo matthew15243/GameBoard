@@ -1,0 +1,224 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+}
+
+body {
+    display: flex;
+    height: 100vh;
+    gap: 2%;
+    padding: 2%;
+}
+
+#active,
+#paused,
+#joinable {
+    margin-top: 1.5em;
+}
+
+#sidebar {
+    flex: 1;
+    background: #f4f4f4;
+    padding: 1em;
+    border-radius: 0.5em;
+    overflow-y: auto;
+    max-height: 100%;
+    width: max-content;
+    max-width: 35%;
+    list-style: none;
+}
+
+
+#sidebar li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5em;
+    cursor: pointer;
+    border-bottom: 1px solid #ccc;
+}
+
+#sidebar li:hover {
+    background: #ddd;
+}
+
+.main {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    height: max-content;
+    max-height: 100%;
+}
+
+.active-games {
+    flex: 1;
+    background: #eaeaea;
+    padding: 1em;
+    border-radius: 0.5em;
+    overflow-y: auto;
+}
+
+.activeGame {
+    display: block;
+    background-color: #ccc;
+}
+
+.game-item {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5em;
+    border-bottom: 1px solid #ccc;
+    border-radius: 0.5em;
+}
+
+.game-item:hover,
+.game-item.selected {
+    background: #ccc;
+}
+
+.delete {
+    cursor: pointer;
+    font-size: 1em;
+}
+
+.game-header {
+    display: grid;
+    grid-template-columns: 3fr 3fr 1fr 1fr;
+    place-items: center;
+    gap: 0.5rem;
+}
+
+.game-details {
+    display: none;
+    padding: 0.5em;
+    background: #f9f9f9;
+    border-radius: 0.5em;
+    margin-top: 0.5em;
+}
+
+.setting-row {
+    margin-top: 0.25em;
+    display: grid;
+    grid-template-columns: auto auto auto;
+    row-gap: 0.25em;
+    column-gap: 0.5em;
+    white-space: nowrap;
+    width: max-content;
+    max-width: 100%;
+}
+
+.setting-row>* {
+    align-self: center;
+    /* vertical alignment (top to bottom center) */
+    justify-self: start;
+    /* horizontal alignment (left to right start) */
+    text-align: left;
+    /* for multi-line text in <p> elements */
+}
+
+.gameState {
+    font-weight: bold;
+    margin-top: 0.5em;
+}
+
+.left p {
+    margin-bottom: 0.5em;
+}
+
+.right p {
+    margin-bottom: 0.5em;
+}
+
+.right>select {
+    display: block;
+    margin-bottom: 0.5em;
+}
+
+.farRight p {
+    margin-bottom: 0.5em;
+}
+
+.buttons {
+    display: flex;
+    justify-content: space-around;
+    padding: 1em;
+}
+
+button {
+    padding: 0.5em 1em;
+    border: none;
+    border-radius: 0.5em;
+    background: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+.configSectionName {
+    border-bottom: 1px solid #ccc;
+    margin-top: 0.5em;
+}
+
+.playersContainer {
+    padding: 0.8em;
+    width: 100%;
+}
+
+.playerRow>input, .playerRow>p {
+    justify-self: center;
+}
+
+.playerRowStatic>input, .playerRowStatic>p {
+    justify-self: center;
+}
+
+.drag-placeholder {
+    height: 3px;
+    background-color: blue;
+    margin: 5px 0;
+}
+
+.playerRow {
+    display: grid;
+    grid-template-columns: 1fr 6fr 2fr 1fr;
+    gap: 0.3rem;
+    padding-left: 0.25em;
+    white-space: nowrap;
+
+    align-items: center;
+    border: 1px solid transparent;
+    cursor: move;
+
+    box-shadow: 0 .125em .25em rgba(0, 0, 0, 0.15);
+    margin-bottom: 0.5em;
+    border-radius: 0.25em;
+}
+
+.playerRowStatic {
+    display: grid;
+    grid-template-columns: 1fr 6fr 2fr 1fr;
+    gap: 0.3rem;
+    padding-left: 0.25em;
+    white-space: nowrap;
+    align-items: center;
+    border: 1px solid transparent;
+}
+
+#playerHeaders {
+    border-bottom: 2px solid #ccc;
+    margin-bottom: 0.5em;
+    border-radius: 0.25em;
+}
+
+.dragging {
+    opacity: 0.5;
+    background-color: #ddd;
+}
+
+.included {
+    border: 1px solid #007bff;
+}
