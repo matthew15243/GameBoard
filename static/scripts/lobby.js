@@ -13,8 +13,10 @@ socket.on('game_update', (data) => {
 
 function loadGames(game) {
     // Close the menu
-	const body = document.body;
-	body.classList.remove('sidebar-open');
+    const body = document.body;
+    body.classList.remove('sidebar-open');
+
+    document.getElementById('buttons').style.display = 'flex'
 
     const currentGame = game.replace(/\s+/g, "").toLowerCase();
     const games = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == currentGame && (item.status === 'Joinable' || item.players.some(p => p.Name === user)))
@@ -49,26 +51,35 @@ function loadGames(game) {
     joinable.style.display = "none"
     joinable.appendChild(joinableText)
 
+    const creating = document.createElement('div')
+    creatingText = document.createElement('h4')
+    creatingText.className = 'gameState'
+    creatingText.textContent = 'Create Game'
+    creating.id = 'creating'
+    creating.style.display = "none"
+    creating.appendChild(creatingText)
+
     activeGames.appendChild(active)
     activeGames.appendChild(paused)
     activeGames.appendChild(joinable)
+    activeGames.appendChild(creating)
 
     const sortedGames = games
-    .sort((a, b) => {
-      const aUserIn = a.players.some(p => p.Name === user);
-      const bUserIn = b.players.some(p => p.Name === user);
-  
-      // Prioritize games where user is a player
-      if (aUserIn !== bUserIn) {
-        return aUserIn ? -1 : 1;
-      }
-  
-      // Then sort by available spots (ascending)
-      const aSpotsLeft = a.maxPlayers - a.players.length;
-      const bSpotsLeft = b.maxPlayers - b.players.length;
-  
-      return aSpotsLeft - bSpotsLeft;
-    });
+        .sort((a, b) => {
+            const aUserIn = a.players.some(p => p.Name === user);
+            const bUserIn = b.players.some(p => p.Name === user);
+
+            // Prioritize games where user is a player
+            if (aUserIn !== bUserIn) {
+                return aUserIn ? -1 : 1;
+            }
+
+            // Then sort by available spots (ascending)
+            const aSpotsLeft = a.maxPlayers - a.players.length;
+            const bSpotsLeft = b.maxPlayers - b.players.length;
+
+            return aSpotsLeft - bSpotsLeft;
+        });
 
     sortedGames.forEach(g => addGameElement(g.id));
 }
@@ -134,7 +145,7 @@ function addComputer(element, gameStatus, host) {
             randomName = botNames[Math.floor(Math.random() * botNames.length)];
         } while (names.includes(randomName));
 
-        const div = createplayersElement({"Name" : randomName, "Type" : "Computer", "Difficulty" : "Normal"}, {randomName: "true"}, gameStatus, host)
+        const div = createplayersElement({ "Name": randomName, "Type": "Computer", "Difficulty": "Normal" }, { randomName: "true" }, gameStatus, host)
         container.insertBefore(div, container.lastChild)
     }
     else {
@@ -151,8 +162,8 @@ function createplayersElement(playerObject, playerReadyStatuses, gameStatus, hos
 
     // Add the first span, sort symbol if the user is the same as the host
     const reorder = document.createElement('span')
-    if (host === user && gameStatus === "Joinable") { reorder.textContent = '≡'}
-    else { reorder.textContent = ' '}
+    if (host === user && gameStatus === "Joinable") { reorder.textContent = '≡' }
+    else { reorder.textContent = ' ' }
     div.appendChild(reorder)
 
     // Add the name to the player div element
@@ -215,8 +226,7 @@ function createplayersElements(players, playerReadyStatuses, gameStatus, host, i
     }
 
     // Add the 'Add Computer' button
-    if (gameStatus === "Joinable" && user === host)
-    {
+    if (gameStatus === "Joinable" && user === host) {
         const div = document.createElement('label');
         div.className = 'computerRowStatic'
         playersContainer.appendChild(div);
@@ -239,13 +249,13 @@ function createplayersElements(players, playerReadyStatuses, gameStatus, host, i
             playersContainer.appendChild(div);
         }
     });
-        
+
 
     return playersContainer
 }
 
-function closeGames() {
-    const activeGames = document.querySelectorAll('.game-details');
+function closeGames(idIgnoreList = []) {
+    const activeGames = Array.from(document.querySelectorAll('.game-details')).filter(el => !idIgnoreList.includes(el.parentElement.id))
 
     activeGames.forEach((gameEl) => {
         gameEl.style.display = 'none';
@@ -268,10 +278,9 @@ function addGameElement(id) {
     const gameStatus = data['status']
     const players = data['players']
     const host = data['host']
-    const createTime = data['created_at']
-    const playerReadyStatuses = data['playerIsReadyStatuses']
-    const maxPlayers = data['maxPlayers']
-    const minPlayers = data['minPlayers']
+    const playerReadyStatuses = data['player_is_ready_statuses']
+    const maxPlayers = data['max_players']
+    const isLocked = data['password']
 
     let previousValues = new WeakMap()
 
@@ -307,11 +316,14 @@ function addGameElement(id) {
     const header = document.createElement('div');
     header.classList.add('game-header');
     const deleteGameText = (host === user) ? `<span><span class='delete' onclick='deleteGame(this, "${game}")'>🗑️</span></span>` : `<span>️</span>`
+    // const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<span>🔒</span>` : `<span>🔓✅</span>`) : `<span></span>`
+    const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<img src="https://assets.dryicons.com/uploads/icon/svg/3534/lock.svg" style="height: 1.25em"></img>` : `<img src="https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg" style = "height: 1.25em"></img>`) : `<span></span>`
     let buttonText = null
     if (gameStatus === 'Active') { buttonText = '<button>Resume</button>' }
     else if (gameStatus === 'Paused') { buttonText = (user === host) ? '<button>Resume</button>' : '' }
-    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? '<button>Start</button>' : ((players.some(p => p.Name === user)) ? '' : '<button onclick = "joinGame(this)">Join</button>') }
+    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? '<button>Start</button>' : ((players.some(p => p.Name === user)) ? '<button onclick = "leaveGame(this)">Leave</button>' : '<button onclick = "joinGame(this)">Join</button>') }
     header.innerHTML = `
+        ${lockText}
         <span>${gameName}</span>
         <span class="player-count">${players.length} / ${maxPlayers} playe${(maxPlayers > 1) ? 'rs' : 'r'}</span>
         ${deleteGameText}
@@ -346,11 +358,13 @@ function addGameElement(id) {
 
             // The container to hold all settings
             const settingContainer = document.createElement('div');
+            details.appendChild(settingContainer);
+
 
             // The principal settings (everything in the configurations object from supabase)
             const mainSettings = document.createElement('div')
-            // mainSettings.id = 'mainSettings'
             mainSettings.classList.add('setting-row');
+            settingContainer.appendChild(mainSettings)
 
             // =================================== //
             // Add the people involved in the game
@@ -364,100 +378,43 @@ function addGameElement(id) {
             // for items in a section (second level of the json object)
             for (const [optionName, optionData] of orderObject(options, 'order')) {
                 if (optionName !== "Name" || !optionData.value.includes("s Game")) {
-                    const label = document.createElement('p')
-                    label.textContent = optionName.replace(/_/g, ' ');
+                    const [label, select, info] = createSetting(game, gameBaseConfigs, section, optionName, optionData, mainSettings, 'value')
 
-                    const baseData = gameBaseConfigs?.[section]?.[optionName]
+                    //     // Keep track of the initial / old values + add event listener to watch for changes
+                    if (optionName.toLowerCase() === 'players') {
+                        previousValues.set(select, select.value)
 
-                    // ======================== //
-                    //  Check for Dependencies  //
-                    // ======================== //
-                    let dependencyMet = true
-                    if ('dependency' in baseData) {
-                        Object.entries(baseData.dependency).forEach(([key, value]) => {
-                            // Get the current value in the DOM
-                            let DOMValue = Array.from(mainSettings.querySelectorAll('p')).find(
-                                el => el.textContent.trim() === key.replace(/_/g, ' ')
-                              );
-                            DOMValue = DOMValue?.nextElementSibling;
-                            DOMValue = (DOMValue.tagName === 'P') ? DOMValue.textContent.trim() : DOMValue.value
+                        select.addEventListener('change', event => {
+                            const newValue = event.target.value;
+                            const oldValue = previousValues.get(select);
+                            const minimumPlayers = gameBaseConfigs?.Game?.Players?.min
+                            const maximumPlayers = gameBaseConfigs?.Game?.Players?.max
 
-                            if (DOMValue !== value) {
-                                dependencyMet = false
-                                return
+                            const totalCount = parseInt(select.parentElement.querySelector(`select[name="Players"]`).value)
+                            // const gameHeader = select.closest('.game-item').querySelector(`span.player-count`)
+                            const playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 2
+
+                            // Example validation logic
+                            if (totalCount > maximumPlayers || totalCount < minimumPlayers) {
+                                alert(`Sorry, You can't have that many players: ${minimumPlayers} <= Players + Computers <= ${maximumPlayers}`);
+                                select.value = oldValue;
+                            } else if (totalCount < playerCount) {
+                                alert(`Sorry, You can't have more players in the game than the game settings allow. Please remove a player before lowering the ${optionName.toLowerCase()} count`)
+                                select.value = oldValue;
+                            } else {
+                                previousValues.set(select, newValue);
+                                // gameHeader.textContent = `${playerCount} / ${totalCount} playe${(totalCount > 1) ? 'rs' : 'r'}`
+                                adjustPlayerCount(select)
                             }
-                        })
-                    }
-                    if (!dependencyMet) { continue }
-
-                    const isOptions = baseData !== undefined && Array.isArray(baseData.options) && baseData.options.length > 0;
-                    const isRange = baseData !== undefined && baseData?.min !== undefined && baseData?.max !== undefined
-                    const isAlterable = (user === host && (isOptions || isRange))
-
-                    // Create the select element
-                    const select = (isAlterable) ? document.createElement('select') : document.createElement('p');
-
-                    if (isAlterable) {
-                        select.name = optionName;
-
-                        const acceptableOptions = getAcceptableValues(game, section, optionName)
-                        acceptableOptions.forEach(opt => {
-                            const option = document.createElement('option');
-                            option.value = opt;
-                            option.textContent = baseData?.units !== undefined ? formatDuration(opt) : opt
-                            if (opt === optionData.value) { option.selected = true }
-                            select.appendChild(option);
-                        })
-
-                        // Keep track of the initial / old values + add event listener to watch for changes
-                        if (optionName.toLowerCase() === 'players') {
-                            previousValues.set(select, select.value)
-
-                            select.addEventListener('change', event => {
-                                const newValue = event.target.value;
-                                const oldValue = previousValues.get(select);
-                                const minimumPlayers = gameBaseConfigs?.Game?.Players?.min
-                                const maximumPlayers = gameBaseConfigs?.Game?.Players?.max
-
-                                const totalCount = parseInt(select.parentElement.querySelector(`select[name="Players"]`).value)
-                                // const gameHeader = select.closest('.game-item').querySelector(`span.player-count`)
-                                const playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 2
-                            
-                                // Example validation logic
-                                if (totalCount > maximumPlayers || totalCount < minimumPlayers) {
-                                    alert(`Sorry, You can't have that many players: ${minimumPlayers} <= Players + Computers <= ${maximumPlayers}`);
-                                    select.value = oldValue;
-                                } else if (totalCount < playerCount) {
-                                    alert(`Sorry, You can't have more players in the game than the game settings allow. Please remove a player before lowering the ${optionName.toLowerCase()} count`)
-                                    select.value = oldValue;
-                                } else {
-                                    previousValues.set(select, newValue);
-                                    // gameHeader.textContent = `${playerCount} / ${totalCount} playe${(totalCount > 1) ? 'rs' : 'r'}`
-                                    adjustPlayerCount(select)
-                                }
-                              });
-                        }
-
-                    }
-                    else {
-                        // select.textContent = optionData.value
-                        select.textContent = baseData?.units !== undefined ? formatDuration(optionData.value) : optionData.value;
+                        });
                     }
 
-                    // Add the description information
-                    const info = document.createElement('p')
-                    if (section in gameBaseConfigs && optionName in gameBaseConfigs[section] && 'description' in gameBaseConfigs[section][optionName]) {
-                        info.innerHTML = `<p title = "${gameBaseConfigs[section][optionName]['description']}" style = "cursor: help; margin-left: 0.25em;">ℹ️</p>`
+                    if (label && select && info) {
+                        mainSettings.appendChild(label)
+                        mainSettings.appendChild(select)
+                        mainSettings.appendChild(info)
                     }
-
-                    mainSettings.appendChild(label)
-                    mainSettings.appendChild(select)
-                    mainSettings.appendChild(info)
                 }
-
-                settingContainer.appendChild(mainSettings)
-                details.appendChild(settingContainer);
-
             }
         }
     }
@@ -481,27 +438,165 @@ function adjustPlayerCount(element) {
 
 }
 
-function createGame() {
+function castValue(value) {
+    if (typeof value !== "string") return value;
+
+    const trimmed = value.trim();
+
+    // Try JSON parse (handles numbers, booleans, null, arrays, objects)
+    try {
+        return JSON.parse(trimmed);
+    } catch { }
+
+    // Handle non-JSON booleans like "True", "FALSE", etc.
+    const lowered = trimmed.toLowerCase();
+    if (lowered === "true") return true;
+    if (lowered === "false") return false;
+    if (lowered === "null") return null;
+    if (lowered === "undefined") return undefined;
+
+    // Fallback: original string
+    return value;
 }
 
-function joinGame(element) {
+async function createGame() {
+    const header = document.getElementById('activeGames').querySelector('h2')
+    const game = header.textContent
+
+    const settings = document.getElementById('creating').querySelector('.game-details')
+    const sections = settings.querySelectorAll('h4')
+    const sectionsData = settings.querySelectorAll('.setting-row')
+
+    let data = {}
+    let configurations = {}
+    for (let i = 0; i < sections.length; i++) {
+        let datum = {}
+        Array.from(sectionsData[i].querySelectorAll('input, select')).forEach(child => {
+            if (child.name === 'Name') {
+                datum[child.name] = { "value": (child.value !== "") ? child.value.replace("'s Game", "").replace("'s", "") + "'s Game" : `${user}'s Game` }
+            }
+            else if (child.name === 'Password') { data['password'] = (child.value === "") ? null : castValue(child.value) }
+            else {
+                datum[child.name] = { "value": (child.value === "") ? null : castValue(child.value) }
+
+                if (child.name === 'Players') { data['max_players'] = parseInt(child.value) }
+            }
+            configurations[sections[i].textContent.replace(/\s+/g, "_")] = datum
+        })
+    }
+    data['game'] = game
+    data['status'] = "Joinable"
+    data['host'] = user
+    data['configurations'] = configurations
+    data['players'] = [{ "Name": user, "Type": "Human" }]
+    data['player_is_ready_statuses'] = { [user]: false }
+
+    response = await fetch(`${BASE_URL}/lobby/create_game`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    });
+
+    if (response.status == 201) {
+        // Reset the page
+        header.textContent = `${game} - Available Games`
+        document.getElementById('createButton').onclick = () => { createGameTemplate() }
+        loadGames(game)
+    }
+    else {
+        const error = await response.json()
+        alert(`Failed to create the game: ${error}`)
+    }
+}
+
+async function joinGame(element) {
+    // Make sure there is room to add another player
     const playerCount = element.closest('.game-item').querySelector('.playersContainer').children.length - 1
     const totalCount = parseInt(Array.from(element.closest('.game-item').querySelectorAll('p')).find(el => el.textContent.trim() === 'Players').nextElementSibling.textContent)
+    if (playerCount >= totalCount) {
+        alert(`Too many players, please select a different game to join`)
+        return
+    }
+
+    // Grab the Host
     const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
 
-    if (playerCount < totalCount) {
-        const container = element.closest('.game-item').querySelector('.playersContainer')
-        const div = createplayersElement({"Name" : user, "Type" : "Human"}, {user: "false"}, "Joinable", host)
-        container.appendChild(div)
-        adjustPlayerCount(div)
+    // Check the passcode
+    const id = element.closest('.game-item').id
+    const passwordRequired = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]['password']
+    let password = undefined
+    if (passwordRequired) {
+        password = prompt("Please enter the passcode")
+        response = await fetch(`${BASE_URL}/lobby/check_password`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({"password" : password, 'id' : id})
+        });
+
+        // Verify the password was correct
+        if (response.status == 201) {
+            const data = await response.json()
+            if (!data.data) { alert(`Incorrect Password`); return;}
+        }
+        else {
+            const error = await response.json()
+            alert(`Failed to check the password; error: ${error}`)
+            return
+        }
     }
+
+
+    // Add the player
+    const container = element.closest('.game-item').querySelector('.playersContainer')
+    const div = createplayersElement({ "Name": user, "Type": "Human" }, { user: "false" }, "Joinable", host)
+    container.appendChild(div)
+
+    // Adjust the player count
+    adjustPlayerCount(div)
+    
+    // Change the 'Join' button to a 'Leave' button
+    element.textContent = 'Leave'
+    element.onclick = function () { leaveGame(this) }
+
+    // Change the 'lock' image to the 'unlock' image
+    const lock = element.closest('.game-item').querySelector('img')
+    lock.src = "https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg"
+}
+
+function leaveGame(element) {
+    const el = Array.from(element.closest('.game-item').querySelectorAll('span')).find(el => el.textContent.trim() === user)
+    removePlayer(el)
+    adjustPlayerCount(element)
+    element.textContent = 'Join'
+    element.onclick = function () { joinGame(this) }
 }
 
 function viewRules() { alert("View Rules Clicked"); }
 
-function deleteGame(el, game) {
+async function deleteGame(el, game) {
     const confirmation = confirm(`You are about to delete "${el.parentElement.parentElement.querySelector('span').textContent}". This action CANNOT be undone.`)
     if (!confirmation) { return }
+
+    const id = el.closest('.game-item').id
+
+    response = await fetch(`${BASE_URL}/lobby/delete_game`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(id)
+    });
+
+    if (response.status == 201) { console.log('Game Deleted')}
+    else {
+        const error = await response.json()
+        alert(`Failed to Remove game: ${error}`)
+        return
+    }
 
     // Identify the corresponding game state div
     gameStateElement = el.parentElement.parentElement.parentElement.parentElement
@@ -535,19 +630,19 @@ function getPlayableGames() {
 
 async function getActiveGames() {
     try {
-      const response = await fetch(`${BASE_URL}/lobby/get_active_games`);
-      const data = await response.json();
-  
-      if (data.error) {
-        console.error("Error fetching games:", data.error);
-        return;
-      }
-  
-      localStorage.setItem("activeGames", JSON.stringify(data));
+        const response = await fetch(`${BASE_URL}/lobby/get_active_games`);
+        const data = await response.json();
+
+        if (data.error) {
+            console.error("Error fetching games:", data.error);
+            return;
+        }
+
+        localStorage.setItem("activeGames", JSON.stringify(data));
     } catch (error) {
-      console.error("Failed to fetch games:", error);
+        console.error("Failed to fetch games:", error);
     }
-  }
+}
 
 function resetGameList(games) {
     const sidebar = document.getElementById('sidebar')
@@ -576,9 +671,9 @@ function resetGameList(games) {
         gameList.appendChild(li);
     });
 
-	// Start with the sidebar open
-	const body = document.body;
-	body.classList.add('sidebar-open');
+    // Start with the sidebar open
+    const body = document.body;
+    body.classList.add('sidebar-open');
 
 }
 
@@ -616,23 +711,30 @@ document.addEventListener('click', (event) => {
         state = details.style.display === 'none' || !details.style.display
     }
 
-    closeGames()
+    closeGames(['creating'])
     if (details) { details.style.display = state ? 'block' : 'none'; }
 
 
 })
 
-function removePlayer(element, event) {
-    event.stopPropagation();
-    const tempElement = element.closest('.playerRow').parentElement
-    element.closest('.playerRow').remove()
+function removePlayer(element, event = undefined) {
+    if (event) { event.stopPropagation() }
+
+    let tempElement = element.closest('.playerRow')
+    if (tempElement === null) { tempElement = element.closest('.playerRowStatic') }
+    tempElement = tempElement.parentElement
+
+    let row = element.closest('.playerRow')
+    if (row !== null) { row.remove() }
+    else { element.closest('.playerRowStatic').remove() }
+
     adjustPlayerCount(tempElement)
 }
 
 function range(start, end, step = 1) {
     const result = [];
     for (let i = start; (step > 0 ? i < end : i > end); i += step) {
-      result.push(i);
+        result.push(i);
     }
     return result;
 }
@@ -661,6 +763,168 @@ function getAcceptableValues(game, section, option) {
     }
 
     return values
+}
+
+/**
+ * This will add all information for an Active, Paused, or Joinable game directly to the DOM
+ *
+ * @param {number} id - The id (as it comes from supabase) for the given game
+ * @returns {void} - This builds all necessary elements and adds them directly to the DOM
+ */
+function createGameTemplate() {
+
+    document.getElementById('createButton').onclick = () => { createGame() }
+
+    // Bring in the general configurations for descriptions
+    const header = document.getElementById('activeGames').querySelector('h2')
+    const game = header.textContent.split(' - ')[0]
+    header.textContent = game
+    const gameBaseConfigs = JSON.parse(localStorage.getItem('playableGames')).filter(item => item['game'].replace(/\s+/g, "").toLowerCase() === game.replace(/\s+/g, "").toLowerCase())[0]['configurations']
+
+    // ============================================================ //
+    // Create the top container for the game (The actual active game) //
+    // ============================================================ //
+
+    // Add the container to the Game Status container
+    const container = document.getElementById('creating')
+    container.style.display = "block"
+
+    // =============================== //
+    // Add the game details to the DOM //
+    // =============================== //
+    const details = document.createElement('div');
+    details.classList.add('game-details');
+    details.classList.add('included');
+    container.appendChild(details);
+
+    // Display the creating container
+    const element = document.getElementById('creating')
+    element.style.display = "block"
+    element.querySelector('.game-details').style.display = "block"
+    document.getElementById('joinable').style.display = "none"
+    document.getElementById('active').style.display = "none"
+    document.getElementById('paused').style.display = "none"
+
+    // for each configuration setting category (first level of the json object) (Game, Game Rules, Timing Settings, etc.)
+    for (const [section, options] of orderObject(gameBaseConfigs, 'order')) {
+        // Create the configuration setting header
+        const sectionHeader = document.createElement('h4');
+        sectionHeader.className = 'configSectionName'
+        sectionHeader.textContent = section.replace(/_/g, ' ');
+        details.appendChild(sectionHeader);
+
+        // The container to hold all settings
+        const settingContainer = document.createElement('div');
+        details.appendChild(settingContainer);
+
+        // The principal settings (everything in the configurations object from supabase)
+        const mainSettings = document.createElement('div')
+        mainSettings.classList.add('setting-row');
+        settingContainer.appendChild(mainSettings)
+
+        // for items in a section (second level of the json object)
+        for (const [optionName, optionData] of orderObject(options, 'order')) {
+            const [label, select, info] = createSetting(game, gameBaseConfigs, section, optionName, optionData, mainSettings)
+
+            if (label && select && info) {
+                mainSettings.appendChild(label)
+                mainSettings.appendChild(select)
+                mainSettings.appendChild(info)
+            }
+        }
+    }
+
+}
+
+function createSetting(game, gameBaseConfigs, section, optionName, optionData, mainSettings, valueKey = 'default') {
+    // Get / set the Host
+    let host = undefined
+    try { host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == mainSettings.closest('.game-item').id)[0]['host'] }
+    catch { host = user }
+
+    const label = document.createElement('p')
+    label.dataset.name = optionName;
+    label.textContent = optionName.replace(/_/g, ' ');
+
+    const baseData = gameBaseConfigs?.[section]?.[optionName]
+
+    // ======================== //
+    //  Check for Dependencies  //
+    // ======================== //
+    let dependencyMet = true
+    if (baseData?.dependentOn) {
+        Object.entries(baseData.dependentOn).forEach(([key, value]) => {
+            // Get the current value in the DOM
+            let DOMValue = Array.from(mainSettings.querySelectorAll('p')).find(
+                el => el.textContent.trim() === key.replace(/_/g, ' ')
+            );
+            DOMValue = DOMValue?.nextElementSibling;
+            DOMValue = (DOMValue.tagName === 'P') ? DOMValue.textContent.trim() : DOMValue.value
+
+            if (DOMValue !== value) {
+                dependencyMet = false
+                return
+            }
+        })
+    }
+    if (!dependencyMet) { return [undefined, undefined, undefined] }
+
+    const isOptions = baseData !== undefined && Array.isArray(baseData.options) && baseData.options.length > 0;
+    const isRange = baseData !== undefined && baseData?.min !== undefined && baseData?.max !== undefined
+    const isAlterable = isOptions || isRange
+
+    // Create the select element
+    const select = (user !== host) ? document.createElement('p') : ((isAlterable) ? document.createElement('select') : document.createElement('input'))
+
+    if (isAlterable && user === host) {
+        select.name = optionName;
+        const acceptableOptions = getAcceptableValues(game, section, optionName)
+        acceptableOptions.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = baseData?.units !== undefined ? formatDuration(opt) : opt
+            if (opt === optionData[valueKey]) { option.selected = true }
+            select.appendChild(option);
+        })
+    }
+    else {
+        select.name = optionName
+        if (optionName === "Name") { select.placeholder = "required" }
+        else if (optionName === "Password") { select.placeholder = "optional" }
+        else {
+            select.textContent = optionData[valueKey]
+        }
+    }
+
+    // Add the description information
+    const info = document.createElement('p')
+    if (section in gameBaseConfigs && optionName in gameBaseConfigs[section] && 'description' in gameBaseConfigs[section][optionName]) {
+        info.innerHTML = `<p title = "${gameBaseConfigs[section][optionName]['description']}" style = "cursor: help; margin-left: 0.25em;">ℹ️</p>`
+    }
+
+    if (baseData?.dependentFor) {
+        select.addEventListener('change', (event) => {
+            const targetValue = event.target.value
+            const dependentForKeys = baseData?.dependentFor
+            dependentForKeys.forEach((dependentFor) => {
+                if (gameBaseConfigs[section][dependentFor].dependentOn[event.target.name] === targetValue) {
+                    const [l, s, i] = createSetting(game, gameBaseConfigs, section, dependentFor, gameBaseConfigs[section][dependentFor], mainSettings, valueKey = 'default')
+                    mainSettings.insertBefore(i, event.target.nextElementSibling.nextElementSibling)
+                    mainSettings.insertBefore(s, event.target.nextElementSibling.nextElementSibling)
+                    mainSettings.insertBefore(l, event.target.nextElementSibling.nextElementSibling)
+                }
+                else {
+                    const dependentElement = Array.from(event.target.closest('.setting-row').querySelectorAll('p')).find(el => el.textContent.replace(/\s+/g, "_").trim() === dependentFor)
+                    dependentElement.nextElementSibling.remove()
+                    dependentElement.nextElementSibling.remove()
+                    dependentElement.remove()
+                }
+            })
+        })
+    }
+
+
+    return [label, select, info]
 }
 
 // Start Up

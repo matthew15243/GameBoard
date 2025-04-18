@@ -7,6 +7,7 @@
 
 body {
     display: flex;
+    justify-content: center;
     height: 100vh;
     padding: 2%;
 }
@@ -50,6 +51,7 @@ body {
     flex-direction: column;
     height: max-content;
     max-height: calc(100% - 2em);
+    max-width: max-content;
     margin-top: 2em;
 }
 
@@ -97,7 +99,7 @@ body {
 
 .game-header {
     display: grid;
-    grid-template-columns: 3fr 3fr 1fr 1fr;
+    grid-template-columns: 1fr 3fr 3fr 1fr 1fr;
     place-items: center;
     gap: 0.5rem;
 }
@@ -152,7 +154,7 @@ body {
     margin-bottom: 0.5em;
 }
 
-.buttons {
+#buttons {
     display: flex;
     justify-content: space-around;
     padding: 1em;
@@ -249,4 +251,8 @@ button:disabled {
 
 .included {
     border: 1px solid #007bff;
+}
+
+#gameName {
+    padding-left: 0.25em;
 }
