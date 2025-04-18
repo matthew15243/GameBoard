@@ -511,6 +511,15 @@ async function createGame() {
     }
 }
 
+/**
+ * This will let the user join a game. It will first check to make sure (according to the client UI) that there is an available
+ * slot. Second, if it is password protected, it will prompt the user for the password. Third, it will send the request off to the
+ * back end and verify that the user isn't already in the game AND that there truly is space in the game. If so, this function will
+ * add the user to the game and update the client's UI.
+ *
+ * @param {Element} element - The 'Join' button element
+ * @returns {void} This update the game for which the element is a part of
+ */
 async function joinGame(element) {
     // Make sure there is room to add another player
     const playerCount = element.closest('.game-item').querySelector('.playersContainer').children.length - 1
@@ -520,10 +529,7 @@ async function joinGame(element) {
         return
     }
 
-    // Grab the Host
-    const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
-
-    // Check the passcode
+    // Check the password
     const id = element.closest('.game-item').id
     const passwordRequired = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]['password']
     let password = undefined
@@ -549,10 +555,38 @@ async function joinGame(element) {
         }
     }
 
+    // Update Supabase
+    response = await fetch(`${BASE_URL}/lobby/join_game`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(parseInt(id))
+    });
 
+    // Verify that the request was successful
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to join ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        return
+    }
+
+    // Update the UI
+    joinGameUIUpdate(element, user)
+}
+
+/**
+ * This will update the UI for joining a game
+ *
+ * @param {Element} element - The 'Join' button element
+ * @param {string} player - The player that should be added to the game
+ * @returns {void} This update the game for which the element is a part of
+ */
+function joinGameUIUpdate(element, player) {
     // Add the player
+    const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
     const container = element.closest('.game-item').querySelector('.playersContainer')
-    const div = createplayersElement({ "Name": user, "Type": "Human" }, { user: "false" }, "Joinable", host)
+    const div = createplayersElement({ "Name": player, "Type": "Human" }, { player: "false" }, "Joinable", host)
     container.appendChild(div)
 
     // Adjust the player count
@@ -564,11 +598,35 @@ async function joinGame(element) {
 
     // Change the 'lock' image to the 'unlock' image
     const lock = element.closest('.game-item').querySelector('img')
-    lock.src = "https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg"
+    if (lock) { lock.src = "https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg" }
 }
 
-function leaveGame(element) {
-    const el = Array.from(element.closest('.game-item').querySelectorAll('span')).find(el => el.textContent.trim() === user)
+async function leaveGame(element) {
+    // Get the game id
+    const id = element.closest('.game-item').id
+
+    // Update Supabase
+    response = await fetch(`${BASE_URL}/lobby/leave_game`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(parseInt(id))
+    });
+
+    // Verify that the request was successful
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        return
+    }
+
+    // Update the UI
+    leaveGameUIUpdate(element, user)
+}
+
+function leaveGameUIUpdate(element, player) {
+    const el = Array.from(element.closest('.game-item').querySelectorAll('span')).find(el => el.textContent.trim() === player)
     removePlayer(el)
     adjustPlayerCount(element)
     element.textContent = 'Join'
@@ -591,7 +649,7 @@ async function deleteGame(el, game) {
         body: JSON.stringify(id)
     });
 
-    if (response.status == 201) { console.log('Game Deleted')}
+    if (response.status == 200) { console.log('Game Deleted')}
     else {
         const error = await response.json()
         alert(`Failed to Remove game: ${error}`)

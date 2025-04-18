@@ -152,10 +152,42 @@ def delete_game():
 
         # Supabase returns the deleted rows in response.data
         if response.data and len(response.data) > 0:
-            return jsonify({"success": True, "message": "Game deleted"}), 201
+            return jsonify({"success": True, "message": "Game deleted"}), 200
         else:
             return jsonify({"success": False, "message": "No matching game found or unauthorized"}), 404
         
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+@lobby_bp.route('/join_game', methods=['POST'])
+def join_game():
+    game_id = request.get_json()
+    user = session.get("user")
+
+    if not user:
+        return jsonify({"error": "Not logged in"}), 403
+
+    new_player = {
+        "Name": user,
+        "Type": "Human"
+    }
+
+    try:
+        response = supabase_client.rpc("add_player_to_game", {
+            "game_id": game_id,
+            "new_player": new_player,
+            "player_name": user
+        }).execute()
+
+        if response.data is None:
+            return jsonify({
+                "success": False,
+                "error": response.error.get("message", "Unknown error")
+            }), 400
+        
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        print(e)
+        return jsonify({"success": False, "error": str(e)}), 500
