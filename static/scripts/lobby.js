@@ -578,7 +578,7 @@ function leaveGame(element) {
 function viewRules() { alert("View Rules Clicked"); }
 
 async function deleteGame(el, game) {
-    const confirmation = confirm(`You are about to delete "${el.parentElement.parentElement.querySelector('span').textContent}". This action CANNOT be undone.`)
+    const confirmation = confirm(`You are about to delete "${el.closest('.game-header').querySelector('span').textContent}". This action CANNOT be undone.`)
     if (!confirmation) { return }
 
     const id = el.closest('.game-item').id
