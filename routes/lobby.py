@@ -92,7 +92,8 @@ def get_playable_games():
 @lobby_bp.route('/get_active_games', methods=['GET'])
 def get_acitve_games():
     try:
-        response = supabase_client.table('ActiveGames').select('id, game, status, host, configurations, players, max_players, player_is_ready_statuses, password').in_('status', ['Joinable', 'Active', 'Paused']).execute()
+        # response = supabase_client.table('ActiveGames').select('id, game, status, host, configurations, players, max_players, player_is_ready_statuses, password').in_('status', ['Joinable', 'Active', 'Paused']).execute()
+        response = supabase_client.table('ActiveGames').select('id, game, status, host, configurations, players, max_players, password').in_('status', ['Joinable', 'Active', 'Paused']).execute()
         games = response.data
 
         for item in games:
@@ -170,7 +171,8 @@ def join_game():
 
     new_player = {
         "Name": user,
-        "Type": "Human"
+        "Type": "Human",
+        "IsReady" : False
     }
 
     try:
@@ -191,3 +193,25 @@ def join_game():
     except Exception as e:
         print(e)
         return jsonify({"success": False, "error": str(e)}), 500
+
+@lobby_bp.route('/leave_game', methods=['POST'])
+def leave_game():
+    game_id = request.get_json()
+    user = session.get("user")
+
+    if not user:
+        return jsonify({"error": "Not logged in"}), 403
+
+    try:
+        response = supabase_client.rpc("remove_player_from_game", {
+            "game_id": game_id,
+            "player_name": user
+        }).execute()
+
+        if not response.data:
+            return jsonify({"success": True, "message": "Player removed"}), 200
+        else:
+            return jsonify({"success": False, "error": response.data}), 400
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400

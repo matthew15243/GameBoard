@@ -8,7 +8,52 @@ const socket = io.connect(`${BASE_URL}`);
 // Listen for game updates
 socket.on('game_update', (data) => {
     console.log("Game updated:", data);
-    // updateGameList(data);
+
+    // Insert / Game Created
+    if (data.type === "INSERT") {
+        // Reset the active games in local storage
+        const games = JSON.parse(localStorage.getItem("activeGames") || "[]");
+        games.push(data.record);
+        localStorage.setItem("activeGames", JSON.stringify(games));
+        if (user === data.record.host) { addGameElement(data.record.id, shouldPrepend = true) }
+        else { addGameElement(data.record.id) }
+    }
+
+    // Delete / Game Deleted
+    if (data.type === "DELETE") {
+        // Reset the active games in local storage
+        const id = data.old_record.id
+        const games = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id !== id);
+        localStorage.setItem("activeGames", JSON.stringify(games));
+
+        const element = document.getElementById(id).querySelector('.delete')
+        deleteGameUpdateUI(element, data.old_record.game)
+    }
+
+    if (data.type === "UPDATE") {
+        // Get the changes
+        const removals = deepDiff(data.old_record, data.record)
+        const additions = deepDiff(data.record, data.old_record)
+
+        // Update the local Storage
+        const id = data.record.id
+        const games = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id !== id)
+        games.push(data.record);
+        localStorage.setItem("activeGames", JSON.stringify(games));
+
+        if (removals?.players) {
+            Object.keys(removals.players).forEach((obj) => {
+                leaveGameUIUpdate(document.getElementById(`leave${id}`), removals.players[obj].Name)
+            })
+        }
+        if (additions?.players) {
+            Object.keys(additions.players).forEach((obj) => {
+                joinGameUIUpdate(document.getElementById(`join${id}`), additions.players[obj])
+            })
+        }
+
+    }
+
 });
 
 function loadGames(game) {
@@ -155,7 +200,7 @@ function addComputer(element, gameStatus, host) {
     adjustPlayerCount(element)
 }
 
-function createplayersElement(playerObject, playerReadyStatuses, gameStatus, host) {
+function createplayersElement(playerObject, gameStatus, host) {
     const name = playerObject.Name
     const div = document.createElement('label');
     div.className = (user === host && gameStatus === "Joinable") ? 'playerRow' : 'playerRowStatic'
@@ -175,7 +220,8 @@ function createplayersElement(playerObject, playerReadyStatuses, gameStatus, hos
     const playerStatus = document.createElement('input')
     playerStatus.type = 'checkbox'
     playerStatus.id = name
-    playerStatus.checked = playerReadyStatuses[name]
+    // playerStatus.checked = playerReadyStatuses[name]
+    playerStatus.checked = playerObject.IsReady
     playerStatus.disabled = !(name === user && gameStatus !== 'Active')
     div.appendChild(playerStatus)
 
@@ -189,7 +235,8 @@ function createplayersElement(playerObject, playerReadyStatuses, gameStatus, hos
     return div
 }
 
-function createplayersElements(players, playerReadyStatuses, gameStatus, host, id) {
+// function createplayersElements(players, playerReadyStatuses, gameStatus, host, id) {
+function createplayersElements(players, gameStatus, host, id) {
     const playersContainer = document.createElement('div')
     playersContainer.id = `playersContainer${id}`
     playersContainer.classList.add('playersContainer')
@@ -241,7 +288,8 @@ function createplayersElements(players, playerReadyStatuses, gameStatus, host, i
     }
 
     players.forEach((playerObject) => {
-        const div = createplayersElement(playerObject, playerReadyStatuses, gameStatus, host)
+        // const div = createplayersElement(playerObject, playerReadyStatuses, gameStatus, host)
+        const div = createplayersElement(playerObject, gameStatus, host)
         if (gameStatus === "Joinable" && host === user) {
             playersContainer.insertBefore(div, playersContainer.lastChild)
         }
@@ -268,7 +316,7 @@ function closeGames(idIgnoreList = []) {
  * @param {number} id - The id (as it comes from supabase) for the given game
  * @returns {void} - This builds all necessary elements and adds them directly to the DOM
  */
-function addGameElement(id) {
+function addGameElement(id, shouldPrepend = false) {
     // Pull the configurations from the local storage
     const data = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]
     const activeConfigs = data['configurations']
@@ -278,7 +326,7 @@ function addGameElement(id) {
     const gameStatus = data['status']
     const players = data['players']
     const host = data['host']
-    const playerReadyStatuses = data['player_is_ready_statuses']
+    // const playerReadyStatuses = data['player_is_ready_statuses']
     const maxPlayers = data['max_players']
     const isLocked = data['password']
 
@@ -299,15 +347,27 @@ function addGameElement(id) {
     if (gameStatus === 'Joinable') {
         const element = document.getElementById('joinable')
         element.style.display = "block"
-        element.appendChild(container);
+        if (!shouldPrepend) { element.appendChild(container) }
+        else {
+            const h4Element = element.querySelector('h4')
+            element.insertBefore(container, h4Element.nextElementSibling)
+        }
     } else if (gameStatus === 'Active') {
         const element = document.getElementById('active')
         element.style.display = "block"
-        element.appendChild(container);
+        if (!shouldPrepend) { element.appendChild(container) }
+        else {
+            const h4Element = element.querySelector('h4')
+            element.insertBefore(container, h4Element.nextElementSibling)
+        }
     } else if (gameStatus === 'Paused') {
         const element = document.getElementById('paused')
         element.style.display = "block"
-        element.appendChild(container);
+        if (!shouldPrepend) { element.appendChild(container) }
+        else {
+            const h4Element = element.querySelector('h4')
+            element.insertBefore(container, h4Element.nextElementSibling)
+        }
     }
 
     // =========================================== //
@@ -319,9 +379,9 @@ function addGameElement(id) {
     // const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<span>🔒</span>` : `<span>🔓✅</span>`) : `<span></span>`
     const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<img src="https://assets.dryicons.com/uploads/icon/svg/3534/lock.svg" style="height: 1.25em"></img>` : `<img src="https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg" style = "height: 1.25em"></img>`) : `<span></span>`
     let buttonText = null
-    if (gameStatus === 'Active') { buttonText = '<button>Resume</button>' }
-    else if (gameStatus === 'Paused') { buttonText = (user === host) ? '<button>Resume</button>' : '' }
-    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? '<button>Start</button>' : ((players.some(p => p.Name === user)) ? '<button onclick = "leaveGame(this)">Leave</button>' : '<button onclick = "joinGame(this)">Join</button>') }
+    if (gameStatus === 'Active') { buttonText = `<button id = 'resume${id}'>Resume</button>` }
+    else if (gameStatus === 'Paused') { buttonText = (user === host) ? `<button id = 'resume${id}'>Resume</button>` : '' }
+    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? `<button id = 'start${id}'>Start</button>` : ((players.some(p => p.Name === user)) ? `<button id = 'leave${id}' onclick = "leaveGame(this)">Leave</button>` : `<button id = 'join${id}' onclick = "joinGame(this)">Join</button>`) }
     header.innerHTML = `
         ${lockText}
         <span>${gameName}</span>
@@ -342,7 +402,8 @@ function addGameElement(id) {
     // Don't add the game details for an active game //
     // ============================================= //
     if (gameStatus === 'Active' || gameStatus === 'Paused') {
-        const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, user, id)
+        // const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, user, id)
+        const playersContainer = createplayersElements(players, gameStatus, host, user, id)
         details.appendChild(playersContainer)
         return
     }
@@ -370,7 +431,8 @@ function addGameElement(id) {
             // Add the people involved in the game
             // =================================== //
             if (section === 'Game') {
-                const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, id)
+                // const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, id)
+                const playersContainer = createplayersElements(players, gameStatus, host, id)
                 settingContainer.appendChild(playersContainer)
             }
 
@@ -488,8 +550,7 @@ async function createGame() {
     data['status'] = "Joinable"
     data['host'] = user
     data['configurations'] = configurations
-    data['players'] = [{ "Name": user, "Type": "Human" }]
-    data['player_is_ready_statuses'] = { [user]: false }
+    data['players'] = [{ "Name": user, "Type": "Human", "IsReady" : false }]
 
     response = await fetch(`${BASE_URL}/lobby/create_game`, {
         method: "POST",
@@ -503,7 +564,16 @@ async function createGame() {
         // Reset the page
         header.textContent = `${game} - Available Games`
         document.getElementById('createButton').onclick = () => { createGameTemplate() }
-        loadGames(game)
+
+        // Update the UI to show the active games
+        document.getElementById('creating').style.display = "none"
+
+        const active = document.getElementById('active')
+        if (active.children.length > 1) { active.style.display = "block" }
+        const paused = document.getElementById('paused')
+        if (paused.children.length > 1) { paused.style.display = "block" }
+        const joinable = document.getElementById('joinable')
+        if (joinable.children.length > 1) { joinable.style.display = "block" }
     }
     else {
         const error = await response.json()
@@ -572,7 +642,7 @@ async function joinGame(element) {
     }
 
     // Update the UI
-    joinGameUIUpdate(element, user)
+    // joinGameUIUpdate(element, user)
 }
 
 /**
@@ -582,18 +652,21 @@ async function joinGame(element) {
  * @param {string} player - The player that should be added to the game
  * @returns {void} This update the game for which the element is a part of
  */
-function joinGameUIUpdate(element, player) {
+function joinGameUIUpdate(element, playerObject) {
     // Add the player
-    const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
+    const id = element.closest('.game-item').id
+    const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]['host']
     const container = element.closest('.game-item').querySelector('.playersContainer')
-    const div = createplayersElement({ "Name": player, "Type": "Human" }, { player: "false" }, "Joinable", host)
+    const div = createplayersElement(playerObject, "Joinable", host)
     container.appendChild(div)
+
 
     // Adjust the player count
     adjustPlayerCount(div)
     
     // Change the 'Join' button to a 'Leave' button
     element.textContent = 'Leave'
+    element.id = `leave${id}`
     element.onclick = function () { leaveGame(this) }
 
     // Change the 'lock' image to the 'unlock' image
@@ -622,7 +695,7 @@ async function leaveGame(element) {
     }
 
     // Update the UI
-    leaveGameUIUpdate(element, user)
+    // leaveGameUIUpdate(element, user)
 }
 
 function leaveGameUIUpdate(element, player) {
@@ -635,11 +708,12 @@ function leaveGameUIUpdate(element, player) {
 
 function viewRules() { alert("View Rules Clicked"); }
 
-async function deleteGame(el, game) {
-    const confirmation = confirm(`You are about to delete "${el.closest('.game-header').querySelector('span').textContent}". This action CANNOT be undone.`)
+async function deleteGame(element, game) {
+    const gameName = Array.from(element.closest('.game-header').querySelectorAll('span')).find(el => el.textContent.trim().toLowerCase().includes('game'))
+    const confirmation = confirm(`You are about to delete "${gameName.textContent}". This action CANNOT be undone.`)
     if (!confirmation) { return }
 
-    const id = el.closest('.game-item').id
+    const id = element.closest('.game-item').id
 
     response = await fetch(`${BASE_URL}/lobby/delete_game`, {
         method: "POST",
@@ -649,22 +723,25 @@ async function deleteGame(el, game) {
         body: JSON.stringify(id)
     });
 
-    if (response.status == 200) { console.log('Game Deleted')}
-    else {
+    if (response.status != 200) {
         const error = await response.json()
         alert(`Failed to Remove game: ${error}`)
         return
     }
+    // deleteGameUpdateUI(element, game)
 
+}
+
+function deleteGameUpdateUI(element, game) {
     // Identify the corresponding game state div
-    gameStateElement = el.parentElement.parentElement.parentElement.parentElement
+    gameStateElement = element.closest('.game-item').parentElement
 
     // Remove the game
-    el.parentElement.parentElement.parentElement.remove();
+    element.closest('.game-item').remove()
 
     // Adjust the playable game's count
     gameCounts[game] = Math.max(0, gameCounts[game] - 1);
-    document.getElementById(`${game}-count`).textContent = gameCounts[game];
+    document.getElementById(`${game.replace(/\s+/g, '_').toLowerCase()}-count`).textContent = gameCounts[game];
 
     // Hide the corresponding game state if there are no longer any games
     if (gameStateElement.children.length === 1) {
@@ -983,6 +1060,30 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
 
 
     return [label, select, info]
+}
+
+function deepDiff(obj1, obj2) {
+    const diff = {};
+  
+    for (const key in obj1) {
+      if (!(key in obj2)) {
+        diff[key] = obj1[key]; // key missing in obj2
+      } else {
+        const val1 = obj1[key];
+        const val2 = obj2[key];
+  
+        if (typeof val1 === 'object' && val1 !== null && typeof val2 === 'object' && val2 !== null) {
+          const nestedDiff = deepDiff(val1, val2);
+          if (Object.keys(nestedDiff).length > 0) {
+            diff[key] = nestedDiff;
+          }
+        } else if (val1 !== val2) {
+          diff[key] = val1;
+        }
+      }
+    }
+  
+    return diff;
 }
 
 // Start Up
