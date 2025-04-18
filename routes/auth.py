@@ -54,7 +54,9 @@ def login():
         profile_response = supabase_client.table("Profiles").select("username").eq("id", user_id).execute()
         profile = profile_response.data[0] if profile_response.data else {}
 
+        # Add both the id and the user to the session
         session['id'] = user_id  # Store session
+        session['user'] = profile['username']
         return jsonify({
             "message": "Login successful",
             "user": response.user.id, # There is lots of info in response.user if I want more in the future
@@ -66,7 +68,8 @@ def login():
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
     supabase_client.auth.sign_out()
-    session.pop('id', None)  # Remove user from session
+    session.pop('id', None)  # Remove id from session
+    session.pop('user', None)  # Remove user from session
     return jsonify({"message": "Logged out successfully"})
 
 @auth_bp.route("/forgot-password", methods=["POST"])

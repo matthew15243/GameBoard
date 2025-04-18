@@ -358,10 +358,13 @@ function addGameElement(id) {
 
             // The container to hold all settings
             const settingContainer = document.createElement('div');
+            details.appendChild(settingContainer);
+
 
             // The principal settings (everything in the configurations object from supabase)
             const mainSettings = document.createElement('div')
             mainSettings.classList.add('setting-row');
+            settingContainer.appendChild(mainSettings)
 
             // =================================== //
             // Add the people involved in the game
@@ -412,10 +415,6 @@ function addGameElement(id) {
                         mainSettings.appendChild(info)
                     }
                 }
-
-                settingContainer.appendChild(mainSettings)
-                details.appendChild(settingContainer);
-
             }
         }
     }
@@ -441,21 +440,21 @@ function adjustPlayerCount(element) {
 
 function castValue(value) {
     if (typeof value !== "string") return value;
-  
+
     const trimmed = value.trim();
-  
+
     // Try JSON parse (handles numbers, booleans, null, arrays, objects)
     try {
-      return JSON.parse(trimmed);
-    } catch {}
-  
+        return JSON.parse(trimmed);
+    } catch { }
+
     // Handle non-JSON booleans like "True", "FALSE", etc.
     const lowered = trimmed.toLowerCase();
     if (lowered === "true") return true;
     if (lowered === "false") return false;
     if (lowered === "null") return null;
     if (lowered === "undefined") return undefined;
-  
+
     // Fallback: original string
     return value;
 }
@@ -472,57 +471,100 @@ async function createGame() {
     let configurations = {}
     for (let i = 0; i < sections.length; i++) {
         let datum = {}
-        // for (child of sectionsData[i].querySelectorAll('input, select')) {
-        Array.from(sectionsData[i].querySelectorAll('input, select')).forEach((child, index) => {
+        Array.from(sectionsData[i].querySelectorAll('input, select')).forEach(child => {
             if (child.name === 'Name') {
-                // datum[child.name] = {"order" : index + 1, "value" : (child.value !== "") ? child.value.replace("'s Game", "").replace("'s", "") + "'s Game" : `${user}'s Game`}
-                datum[child.name] = {"value" : (child.value !== "") ? child.value.replace("'s Game", "").replace("'s", "") + "'s Game" : `${user}'s Game`}
+                datum[child.name] = { "value": (child.value !== "") ? child.value.replace("'s Game", "").replace("'s", "") + "'s Game" : `${user}'s Game` }
             }
-            // else if (child.name === 'Password') {data['password'] = {"order" : index + 1, "value" : (child.value === "") ? null : child.value } }
-            else if (child.name === 'Password') {data['password'] = (child.value === "") ? null : castValue(child.value) }
-            // else { datum[child.name] = {"order" : index + 1, "value" : (child.value === "") ? null : child.value }
-            else { datum[child.name] = {"value" : (child.value === "") ? null : castValue(child.value) }
+            else if (child.name === 'Password') { data['password'] = (child.value === "") ? null : castValue(child.value) }
+            else {
+                datum[child.name] = { "value": (child.value === "") ? null : castValue(child.value) }
 
-            if (child.name === 'Players') { data['max_players'] = parseInt(child.value)}
-            // datum["order"] = i + 1
-        }
-        configurations[sections[i].textContent.replace(/\s+/g, "_")] = datum
+                if (child.name === 'Players') { data['max_players'] = parseInt(child.value) }
+            }
+            configurations[sections[i].textContent.replace(/\s+/g, "_")] = datum
         })
     }
     data['game'] = game
     data['status'] = "Joinable"
     data['host'] = user
     data['configurations'] = configurations
-    data['players'] = [{"Name" : user, "Type" : "Human"}]
-    data['player_is_ready_statuses'] = {[user]: false}
+    data['players'] = [{ "Name": user, "Type": "Human" }]
+    data['player_is_ready_statuses'] = { [user]: false }
 
     response = await fetch(`${BASE_URL}/lobby/create_game`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+            "Content-Type": "application/json"
         },
         body: JSON.stringify(data)
-      });
+    });
 
-    // Reset the page
-    header.textContent = `${game} - Available Games`
-    document.getElementById('createButton').onclick = () => { createGameTemplate() }
-    loadGames(game)
+    if (response.status == 201) {
+        // Reset the page
+        header.textContent = `${game} - Available Games`
+        document.getElementById('createButton').onclick = () => { createGameTemplate() }
+        loadGames(game)
+    }
+    else {
+        const error = await response.json()
+        alert(`Failed to create the game: ${error}`)
+    }
 }
 
-function joinGame(element) {
+async function joinGame(element) {
+    // Make sure there is room to add another player
     const playerCount = element.closest('.game-item').querySelector('.playersContainer').children.length - 1
     const totalCount = parseInt(Array.from(element.closest('.game-item').querySelectorAll('p')).find(el => el.textContent.trim() === 'Players').nextElementSibling.textContent)
+    if (playerCount >= totalCount) {
+        alert(`Too many players, please select a different game to join`)
+        return
+    }
+
+    // Grab the Host
     const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
 
-    if (playerCount < totalCount) {
-        const container = element.closest('.game-item').querySelector('.playersContainer')
-        const div = createplayersElement({ "Name": user, "Type": "Human" }, { user: "false" }, "Joinable", host)
-        container.appendChild(div)
-        adjustPlayerCount(div)
-        element.textContent = 'Leave'
-        element.onclick = function () { leaveGame(this) }
+    // Check the passcode
+    const id = element.closest('.game-item').id
+    const passwordRequired = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]['password']
+    let password = undefined
+    if (passwordRequired) {
+        password = prompt("Please enter the passcode")
+        response = await fetch(`${BASE_URL}/lobby/check_password`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({"password" : password, 'id' : id})
+        });
+
+        // Verify the password was correct
+        if (response.status == 201) {
+            const data = await response.json()
+            if (!data.data) { alert(`Incorrect Password`); return;}
+        }
+        else {
+            const error = await response.json()
+            alert(`Failed to check the password; error: ${error}`)
+            return
+        }
     }
+
+
+    // Add the player
+    const container = element.closest('.game-item').querySelector('.playersContainer')
+    const div = createplayersElement({ "Name": user, "Type": "Human" }, { user: "false" }, "Joinable", host)
+    container.appendChild(div)
+
+    // Adjust the player count
+    adjustPlayerCount(div)
+    
+    // Change the 'Join' button to a 'Leave' button
+    element.textContent = 'Leave'
+    element.onclick = function () { leaveGame(this) }
+
+    // Change the 'lock' image to the 'unlock' image
+    const lock = element.closest('.game-item').querySelector('img')
+    lock.src = "https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg"
 }
 
 function leaveGame(element) {
@@ -535,9 +577,26 @@ function leaveGame(element) {
 
 function viewRules() { alert("View Rules Clicked"); }
 
-function deleteGame(el, game) {
+async function deleteGame(el, game) {
     const confirmation = confirm(`You are about to delete "${el.parentElement.parentElement.querySelector('span').textContent}". This action CANNOT be undone.`)
     if (!confirmation) { return }
+
+    const id = el.closest('.game-item').id
+
+    response = await fetch(`${BASE_URL}/lobby/delete_game`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(id)
+    });
+
+    if (response.status == 201) { console.log('Game Deleted')}
+    else {
+        const error = await response.json()
+        alert(`Failed to Remove game: ${error}`)
+        return
+    }
 
     // Identify the corresponding game state div
     gameStateElement = el.parentElement.parentElement.parentElement.parentElement
@@ -756,10 +815,12 @@ function createGameTemplate() {
 
         // The container to hold all settings
         const settingContainer = document.createElement('div');
+        details.appendChild(settingContainer);
 
         // The principal settings (everything in the configurations object from supabase)
         const mainSettings = document.createElement('div')
         mainSettings.classList.add('setting-row');
+        settingContainer.appendChild(mainSettings)
 
         // for items in a section (second level of the json object)
         for (const [optionName, optionData] of orderObject(options, 'order')) {
@@ -770,16 +831,17 @@ function createGameTemplate() {
                 mainSettings.appendChild(select)
                 mainSettings.appendChild(info)
             }
-
-            settingContainer.appendChild(mainSettings)
-            details.appendChild(settingContainer);
-
         }
     }
 
 }
 
 function createSetting(game, gameBaseConfigs, section, optionName, optionData, mainSettings, valueKey = 'default') {
+    // Get / set the Host
+    let host = undefined
+    try { host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == mainSettings.closest('.game-item').id)[0]['host'] }
+    catch { host = user }
+
     const label = document.createElement('p')
     label.dataset.name = optionName;
     label.textContent = optionName.replace(/_/g, ' ');
@@ -812,10 +874,10 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
     const isAlterable = isOptions || isRange
 
     // Create the select element
-    const select = (isAlterable) ? document.createElement('select') : document.createElement('input');
-    select.name = optionName;
+    const select = (user !== host) ? document.createElement('p') : ((isAlterable) ? document.createElement('select') : document.createElement('input'))
 
-    if (isAlterable) {
+    if (isAlterable && user === host) {
+        select.name = optionName;
         const acceptableOptions = getAcceptableValues(game, section, optionName)
         acceptableOptions.forEach(opt => {
             const option = document.createElement('option');
@@ -826,9 +888,12 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
         })
     }
     else {
-        select.id = 'gameName'
+        select.name = optionName
         if (optionName === "Name") { select.placeholder = "required" }
         else if (optionName === "Password") { select.placeholder = "optional" }
+        else {
+            select.textContent = optionData[valueKey]
+        }
     }
 
     // Add the description information
@@ -861,32 +926,6 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
 
     return [label, select, info]
 }
-
-// ================================================================ //
-//                       EVENT LISTENERS                            //
-// ================================================================ //
-// const modal = document.getElementById('passwordModal');
-// const input = document.getElementById('passwordInput');
-// const submit = document.getElementById('submitPassword');
-// const cancel = document.getElementById('cancelPassword');
-
-// joinButton.addEventListener('click', () => {
-//   input.value = '';
-//   modal.style.display = 'block';
-//   input.focus();
-// });
-
-// submit.addEventListener('click', () => {
-//   const password = input.value;
-//   modal.style.display = 'none';
-//   console.log("Entered password:", password);
-//   // validate and proceed
-// });
-
-// cancel.addEventListener('click', () => {
-//   modal.style.display = 'none';
-// });
-
 
 // Start Up
 createHeader(true)

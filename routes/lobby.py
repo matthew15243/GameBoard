@@ -105,6 +105,25 @@ def get_acitve_games():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@lobby_bp.route('/check_password', methods=['POST'])
+def check_password():
+    try:
+        passwordObject = request.get_json()
+        password = passwordObject['password']
+        id = passwordObject['id']
+
+        # Make the call to supabase
+        response = supabase_client.table('ActiveGames').select('password').eq("id", id).single().execute()
+
+        if response.data:
+            return jsonify({"success": True, "data" : response.data['password'] == password}), 201
+        else:
+            return jsonify({"success": False, "data" : 'Failed to Connect to Supabase'}), 400
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @lobby_bp.route('/create_game', methods=['POST'])
 def create_game():
     try:
@@ -125,3 +144,18 @@ def create_game():
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@lobby_bp.route('/delete_game', methods=['POST'])
+def delete_game():
+    try:
+        id = request.get_json()
+        response = supabase_client.table("ActiveGames").delete().eq("id", id).eq("host", session['user']).execute()
+
+        # Supabase returns the deleted rows in response.data
+        if response.data and len(response.data) > 0:
+            return jsonify({"success": True, "message": "Game deleted"}), 201
+        else:
+            return jsonify({"success": False, "message": "No matching game found or unauthorized"}), 404
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": str(e)}), 500
