@@ -32,16 +32,14 @@ app.register_blueprint(lobby_bp, url_prefix='/lobby') # Get the general function
 @app.route('/supabase-webhook', methods=['POST'])
 def supabase_webhook():
 	token = request.headers.get("Authorization")
-	print(token)
 	if (token != f"Bearer {os.getenv("FLASK_KEY")}"):
 		print('fail')
 		return jsonify({"error": "Unauthorized"}), 403
 	
-	print('success')
 	data = request.json  # Get webhook data
 	table = data.get('table')  # Supabase includes the table name
 
-	print(f"Received update from {table}: {data}")
+	# print(f"Received update from {table}: {data}")
 
 	if table == "ActiveGames":
 		socketio.emit('game_update', data)  # Emit event for ActiveGames

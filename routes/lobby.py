@@ -14,7 +14,6 @@ lobby_bp = Blueprint('lobby', __name__)
 supabase_client = supabase.create_client(url, key)
 
 def getAcceptableValues(defaults, section, option):
-    # Normalize section name to match JS behavior
     option_configs = defaults['configurations'].get(section, {}).get(option)
     values = []
 
@@ -92,8 +91,7 @@ def get_playable_games():
 @lobby_bp.route('/get_active_games', methods=['GET'])
 def get_acitve_games():
     try:
-        # response = supabase_client.table('ActiveGames').select('id, game, status, host, configurations, players, max_players, player_is_ready_statuses, password').in_('status', ['Joinable', 'Active', 'Paused']).execute()
-        response = supabase_client.table('ActiveGames').select('id, game, status, host, configurations, players, max_players, password').in_('status', ['Joinable', 'Active', 'Paused']).execute()
+        response = supabase_client.table('ActiveGames').select('id, game, status, host, configurations, players, password').in_('status', ['Joinable', 'Active', 'Paused']).execute()
         games = response.data
 
         for item in games:
@@ -215,3 +213,33 @@ def leave_game():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
+
+@lobby_bp.route('/update_config', methods=['POST'])
+def update_config():
+    data = request.get_json()
+    game_id = data.get("id")
+    config_patch = data.get("config_patch")
+
+    print(game_id)
+    print(config_patch)
+
+    if not game_id or not config_patch:
+        return jsonify({"success": False, "error": "Missing id or config_patch"}), 400
+    
+    print('valid data')
+
+    try:
+        response = supabase_client.rpc("update_nested_jsonb_config", {
+            "game_id": game_id,
+            "config_patch": config_patch
+        }).execute()
+
+        print('received response!')
+
+        if response.data is not None:
+            return jsonify({"success": True}), 200
+        else:
+            return jsonify({"success": False, "error": "Update failed"}), 400
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

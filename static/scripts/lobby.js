@@ -2,10 +2,14 @@ const activeGames = document.getElementById("activeGames");
 const gameCounts = {};
 const user = JSON.parse(localStorage.getItem('user')).username
 const computerDifficulties = ['Easy', 'Normal', 'Hard']
-
+let configPatch = {};
+let debounceTimer = null;
+const DEBOUNCE_DELAY = 3000; // 3 seconds
 const socket = io.connect(`${BASE_URL}`);
 
-// Listen for game updates
+// ================================ //
+//            Web Hooks             //
+// ================================ //
 socket.on('game_update', (data) => {
     console.log("Game updated:", data);
 
@@ -35,26 +39,93 @@ socket.on('game_update', (data) => {
         const removals = deepDiff(data.old_record, data.record)
         const additions = deepDiff(data.record, data.old_record)
 
-        // Update the local Storage
+        // Get important information
         const id = data.record.id
+        const host = data.record.host
+
+        // Update the local Storage
         const games = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id !== id)
         games.push(data.record);
         localStorage.setItem("activeGames", JSON.stringify(games));
 
-        if (removals?.players) {
-            Object.keys(removals.players).forEach((obj) => {
-                leaveGameUIUpdate(document.getElementById(`leave${id}`), removals.players[obj].Name)
-            })
-        }
-        if (additions?.players) {
-            Object.keys(additions.players).forEach((obj) => {
-                joinGameUIUpdate(document.getElementById(`join${id}`), additions.players[obj])
-            })
+        if (data.record.status == 'Joinable') {
+            if (removals?.players) {
+                Object.keys(removals.players).forEach((obj) => {
+                    leaveGameUIUpdate(document.getElementById(`actionButton${id}`), removals.players[obj].Name)
+                })
+            }
+            if (additions?.players) {
+                Object.keys(additions.players).forEach((obj) => {
+                    joinGameUIUpdate(document.getElementById(`actionButton${id}`), additions.players[obj])
+                })
+            }
+
+            if (additions?.configurations) {
+                const gameConfigs = JSON.parse(localStorage.getItem('playableGames')).filter(item => item.game == data.record.game)
+                Object.keys(additions.configurations).forEach((section) => {
+                    Object.keys(additions.configurations[section]).forEach((option) => {
+                        if (user === host) {
+                            try {
+                                const element = document.getElementById(id).querySelector(`select[name="${option}"]`)
+                                if (castValue(element.value) !== additions.configurations[section][option].value) {
+                                    element.value = additions.configurations[section][option].value
+                                    element.dispatchEvent(new Event("change"))
+                                }
+                            } catch (e) { console.log(e)}
+                        }
+                        else {
+                            try {
+                                const element = document.getElementById(id).querySelector(`p[data-name="${option}"]`).nextElementSibling
+                                element.textContent = additions.configurations[section][option].value
+                                element.dispatchEvent(new Event("change")) // Trigger a change event if there is an event listener
+                            } catch (e) { }
+                        }
+                    })
+                })
+            }
         }
 
     }
 
 });
+
+// ================================ //
+//         Helper Functions         //
+// ================================ //
+function formatDuration(seconds, useFullUnits = true) {
+    const units = [
+        { label: 'day', value: 86400 },
+        { label: 'hour', value: 3600 },
+        { label: 'minute', value: 60 },
+        { label: 'second', value: 1 },
+    ];
+
+    const parts = [];
+
+    for (const { label, value } of units) {
+        const unitAmount = Math.floor(seconds / value);
+        if (unitAmount > 0) {
+            if (useFullUnits) { parts.push(`${unitAmount} ${label}${unitAmount > 1 ? 's' : ''}`) }
+            else { parts.push(`${unitAmount} ${label[0]}`) }
+            seconds %= value;
+        }
+    }
+
+    if (parts.length === 0) return '0 seconds';
+    if (parts.length === 1) return parts[0];
+
+    // Join with commas and 'and' before the last part
+    if (useFullUnits) { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
+    else { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
+}
+
+function swapDifficulty(element) {
+    const difficulty = element.textContent
+    const index = computerDifficulties.indexOf(difficulty)
+    const newDifficulty = (index < computerDifficulties.length - 1) ? computerDifficulties[index + 1] : computerDifficulties[0];
+
+    element.textContent = newDifficulty
+}
 
 function loadGames(game) {
     // Close the menu
@@ -129,41 +200,6 @@ function loadGames(game) {
     sortedGames.forEach(g => addGameElement(g.id));
 }
 
-function formatDuration(seconds, useFullUnits = true) {
-    const units = [
-        { label: 'day', value: 86400 },
-        { label: 'hour', value: 3600 },
-        { label: 'minute', value: 60 },
-        { label: 'second', value: 1 },
-    ];
-
-    const parts = [];
-
-    for (const { label, value } of units) {
-        const unitAmount = Math.floor(seconds / value);
-        if (unitAmount > 0) {
-            if (useFullUnits) { parts.push(`${unitAmount} ${label}${unitAmount > 1 ? 's' : ''}`) }
-            else { parts.push(`${unitAmount} ${label[0]}`) }
-            seconds %= value;
-        }
-    }
-
-    if (parts.length === 0) return '0 seconds';
-    if (parts.length === 1) return parts[0];
-
-    // Join with commas and 'and' before the last part
-    if (useFullUnits) { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
-    else { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
-}
-
-function swapDifficulty(element) {
-    const difficulty = element.textContent
-    const index = computerDifficulties.indexOf(difficulty)
-    const newDifficulty = (index < computerDifficulties.length - 1) ? computerDifficulties[index + 1] : computerDifficulties[0];
-
-    element.textContent = newDifficulty
-}
-
 function addComputer(element, gameStatus, host) {
     const botNames = [
         "AlphaBot", "BotimusPrime", "DataStorm", "RoboRex", "CircuitSurge", "QuantumBot", "Botzilla", "RAMbo", "BitBandit", "ByteSize", "AutoMate"
@@ -213,7 +249,7 @@ function createplayersElement(playerObject, gameStatus, host) {
 
     // Add the name to the player div element
     playerName = document.createElement('span')
-    playerName.innerHTML = `${name}${name === host ? ' (Host)' : ''}${playerObject?.Type === 'Computer' ? ' <button style = "margin-left: 2em; padding: 0.25em 1em;"' + ((gameStatus === "Joinable" && host === user) ? ' onclick="swapDifficulty(this)">' : ' disabled>') + playerObject?.Difficulty + '</button>' : ''}`;
+    playerName.innerHTML = `${name}${name === host ? ' (Host)' : ''}${playerObject?.Type === 'Computer' ? '<button style = "margin-left: 2em; padding: 0.25em 1em;"' + ((gameStatus === "Joinable" && host === user) ? ' onclick="swapDifficulty(this)">' : ' disabled>') + playerObject?.Difficulty + '</button>' : ''}`;
     div.appendChild(playerName)
 
     // Add the player status check box
@@ -235,7 +271,6 @@ function createplayersElement(playerObject, gameStatus, host) {
     return div
 }
 
-// function createplayersElements(players, playerReadyStatuses, gameStatus, host, id) {
 function createplayersElements(players, gameStatus, host, id) {
     const playersContainer = document.createElement('div')
     playersContainer.id = `playersContainer${id}`
@@ -288,7 +323,6 @@ function createplayersElements(players, gameStatus, host, id) {
     }
 
     players.forEach((playerObject) => {
-        // const div = createplayersElement(playerObject, playerReadyStatuses, gameStatus, host)
         const div = createplayersElement(playerObject, gameStatus, host)
         if (gameStatus === "Joinable" && host === user) {
             playersContainer.insertBefore(div, playersContainer.lastChild)
@@ -326,8 +360,7 @@ function addGameElement(id, shouldPrepend = false) {
     const gameStatus = data['status']
     const players = data['players']
     const host = data['host']
-    // const playerReadyStatuses = data['player_is_ready_statuses']
-    const maxPlayers = data['max_players']
+    const maxPlayers = data?.configurations?.Game?.Players?.value
     const isLocked = data['password']
 
     let previousValues = new WeakMap()
@@ -376,12 +409,11 @@ function addGameElement(id, shouldPrepend = false) {
     const header = document.createElement('div');
     header.classList.add('game-header');
     const deleteGameText = (host === user) ? `<span><span class='delete' onclick='deleteGame(this, "${game}")'>🗑️</span></span>` : `<span>️</span>`
-    // const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<span>🔒</span>` : `<span>🔓✅</span>`) : `<span></span>`
     const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<img src="https://assets.dryicons.com/uploads/icon/svg/3534/lock.svg" style="height: 1.25em"></img>` : `<img src="https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg" style = "height: 1.25em"></img>`) : `<span></span>`
     let buttonText = null
-    if (gameStatus === 'Active') { buttonText = `<button id = 'resume${id}'>Resume</button>` }
-    else if (gameStatus === 'Paused') { buttonText = (user === host) ? `<button id = 'resume${id}'>Resume</button>` : '' }
-    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? `<button id = 'start${id}'>Start</button>` : ((players.some(p => p.Name === user)) ? `<button id = 'leave${id}' onclick = "leaveGame(this)">Leave</button>` : `<button id = 'join${id}' onclick = "joinGame(this)">Join</button>`) }
+    if (gameStatus === 'Active') { buttonText = `<button id = 'actionButton${id}'>Resume</button>` }
+    else if (gameStatus === 'Paused') { buttonText = (user === host) ? `<button id = 'actionButton${id}'>Resume</button>` : '' }
+    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? `<button id = 'actionButton${id}'>Start</button>` : ((players.some(p => p.Name === user)) ? `<button id = 'actionButton${id}' onclick = "leaveGame(this)">Leave</button>` : `<button id = 'actionButton${id}' onclick = "joinGame(this)">Join</button>`) }
     header.innerHTML = `
         ${lockText}
         <span>${gameName}</span>
@@ -402,7 +434,6 @@ function addGameElement(id, shouldPrepend = false) {
     // Don't add the game details for an active game //
     // ============================================= //
     if (gameStatus === 'Active' || gameStatus === 'Paused') {
-        // const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, user, id)
         const playersContainer = createplayersElements(players, gameStatus, host, user, id)
         details.appendChild(playersContainer)
         return
@@ -425,7 +456,6 @@ function addGameElement(id, shouldPrepend = false) {
             // The principal settings (everything in the configurations object from supabase)
             const mainSettings = document.createElement('div')
             mainSettings.classList.add('setting-row');
-            settingContainer.appendChild(mainSettings)
 
             // =================================== //
             // Add the people involved in the game
@@ -435,39 +465,51 @@ function addGameElement(id, shouldPrepend = false) {
                 const playersContainer = createplayersElements(players, gameStatus, host, id)
                 settingContainer.appendChild(playersContainer)
             }
-
+            settingContainer.appendChild(mainSettings)
 
             // for items in a section (second level of the json object)
             for (const [optionName, optionData] of orderObject(options, 'order')) {
                 if (optionName !== "Name" || !optionData.value.includes("s Game")) {
                     const [label, select, info] = createSetting(game, gameBaseConfigs, section, optionName, optionData, mainSettings, 'value')
+                    // Listen for a change -> send the change to supabase
+                    if (select && select.tagName === 'SELECT') { addListener(select) }
 
-                    //     // Keep track of the initial / old values + add event listener to watch for changes
+                    // Keep track of the initial / old values + add event listener to watch for changes
                     if (optionName.toLowerCase() === 'players') {
                         previousValues.set(select, select.value)
 
                         select.addEventListener('change', event => {
-                            const newValue = event.target.value;
+                            let newValue = undefined
                             const oldValue = previousValues.get(select);
                             const minimumPlayers = gameBaseConfigs?.Game?.Players?.min
                             const maximumPlayers = gameBaseConfigs?.Game?.Players?.max
+                            let totalCount = undefined
+                            let playerCount = undefined
 
-                            const totalCount = parseInt(select.parentElement.querySelector(`select[name="Players"]`).value)
-                            // const gameHeader = select.closest('.game-item').querySelector(`span.player-count`)
-                            const playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 2
-
-                            // Example validation logic
-                            if (totalCount > maximumPlayers || totalCount < minimumPlayers) {
-                                alert(`Sorry, You can't have that many players: ${minimumPlayers} <= Players + Computers <= ${maximumPlayers}`);
-                                select.value = oldValue;
-                            } else if (totalCount < playerCount) {
-                                alert(`Sorry, You can't have more players in the game than the game settings allow. Please remove a player before lowering the ${optionName.toLowerCase()} count`)
-                                select.value = oldValue;
-                            } else {
-                                previousValues.set(select, newValue);
-                                // gameHeader.textContent = `${playerCount} / ${totalCount} playe${(totalCount > 1) ? 'rs' : 'r'}`
-                                adjustPlayerCount(select)
+                            if (event.target.tagName == "SELECT") {
+                                newValue = event.target.value;
+                                totalCount = parseInt(select.parentElement.querySelector(`select[name="Players"]`).value)
+                                playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 2
                             }
+                            else {
+                                newValue = event.target.textContent;
+                                totalCount = parseInt(select.parentElement.querySelector(`p[data-name="Players"]`).textContent)
+                                playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 1
+                            }
+
+                            // Validate the change
+                            if (event.target.tagName == 'SELECT') {
+                                if (totalCount > maximumPlayers || totalCount < minimumPlayers) {
+                                    alert(`Sorry, You can't have that many players: ${minimumPlayers} <= Players + Computers <= ${maximumPlayers}`);
+                                    select.value = oldValue;
+                                } else if (totalCount < playerCount) {
+                                    alert(`Sorry, You can't have more players in the game than the game settings allow. Please remove a player before lowering the ${optionName.toLowerCase()} count`)
+                                    select.value = oldValue;
+                                } else {
+                                    previousValues.set(select, newValue);
+                                }
+                            }
+                            adjustPlayerCount(select)
                         });
                     }
 
@@ -482,6 +524,77 @@ function addGameElement(id, shouldPrepend = false) {
     }
 
 }
+
+function addListener(element) {
+    element.addEventListener('change', event => {
+        const id = castValue(event.target.closest('.game-item').id)
+        const value = castValue(event.target.value)
+        const option = event.target.name
+        const section = event.target.closest('.setting-row').parentElement.previousElementSibling.textContent.replace(/\s+/g, '_')
+        const trueValue = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id === id)[0].configurations[section][option].value
+        if (trueValue !== value) { queueConfigChange(section, option, value, id) }
+    })
+}
+
+function queueConfigChange(section, option, newValue, id) {
+    // Step 1: Add the change to the patch object
+    configPatch = {
+      ...configPatch,
+      [section]: {
+        ...(configPatch[section] || {}),
+        [option]: {
+          ...(configPatch[section]?.[option] || {}),
+          value: newValue
+        }
+      }
+    };
+  
+    // Step 2: Reset debounce timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+  
+    debounceTimer = setTimeout(() => {
+      // Step 3: After delay with no changes, send to backend
+      sendConfigPatch(id);
+      configPatch = {}; // reset after sending
+    }, DEBOUNCE_DELAY);
+  }
+  
+  async function sendConfigPatch(gameId) {
+    if (Object.keys(configPatch).length === 0) return;
+  
+    // Disable selects
+    const container = document.getElementById(gameId);
+
+    container.querySelectorAll("select").forEach(select => {
+        select.disabled = true;
+    });
+  
+    const response = await fetch(`${BASE_URL}/lobby/update_config`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        id: gameId,
+        config_patch: configPatch
+      })
+    });
+  
+    if (response.status == 200) {
+        configPatch = {}
+    }
+    else {
+        const error = await response.json()
+        alert(`Failed to create the game: ${error}`)
+    }
+
+    // Re-enable selects
+    container.querySelectorAll("select").forEach(select => {
+        select.disabled = false;
+    });
+  }
 
 function adjustPlayerCount(element) {
     const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
@@ -541,7 +654,7 @@ async function createGame() {
             else {
                 datum[child.name] = { "value": (child.value === "") ? null : castValue(child.value) }
 
-                if (child.name === 'Players') { data['max_players'] = parseInt(child.value) }
+                // if (child.name === 'Players') { data['max_players'] = parseInt(child.value) }
             }
             configurations[sections[i].textContent.replace(/\s+/g, "_")] = datum
         })
@@ -550,7 +663,7 @@ async function createGame() {
     data['status'] = "Joinable"
     data['host'] = user
     data['configurations'] = configurations
-    data['players'] = [{ "Name": user, "Type": "Human", "IsReady" : false }]
+    data['players'] = [{ "Name": user, "Type": "Human", "IsReady": false }]
 
     response = await fetch(`${BASE_URL}/lobby/create_game`, {
         method: "POST",
@@ -610,13 +723,13 @@ async function joinGame(element) {
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({"password" : password, 'id' : id})
+            body: JSON.stringify({ "password": password, 'id': id })
         });
 
         // Verify the password was correct
         if (response.status == 201) {
             const data = await response.json()
-            if (!data.data) { alert(`Incorrect Password`); return;}
+            if (!data.data) { alert(`Incorrect Password`); return; }
         }
         else {
             const error = await response.json()
@@ -640,9 +753,6 @@ async function joinGame(element) {
         alert(`Failed to join ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
         return
     }
-
-    // Update the UI
-    // joinGameUIUpdate(element, user)
 }
 
 /**
@@ -658,15 +768,15 @@ function joinGameUIUpdate(element, playerObject) {
     const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]['host']
     const container = element.closest('.game-item').querySelector('.playersContainer')
     const div = createplayersElement(playerObject, "Joinable", host)
-    container.appendChild(div)
+    if (user !== host) { container.appendChild(div) }
+    else { container.insertBefore(div, container.lastElementChild) }
 
 
     // Adjust the player count
     adjustPlayerCount(div)
-    
+
     // Change the 'Join' button to a 'Leave' button
     element.textContent = 'Leave'
-    element.id = `leave${id}`
     element.onclick = function () { leaveGame(this) }
 
     // Change the 'lock' image to the 'unlock' image
@@ -693,13 +803,15 @@ async function leaveGame(element) {
         alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
         return
     }
-
-    // Update the UI
-    // leaveGameUIUpdate(element, user)
 }
 
 function leaveGameUIUpdate(element, player) {
-    const el = Array.from(element.closest('.game-item').querySelectorAll('span')).find(el => el.textContent.trim() === player)
+    const el = Array.from(element.closest('.game-item').querySelectorAll('span'))
+    .find(el =>
+      Array.from(el.childNodes).some(node =>
+        node.nodeType === Node.TEXT_NODE && node.textContent.trim() === player
+      )
+    );
     removePlayer(el)
     adjustPlayerCount(element)
     element.textContent = 'Join'
@@ -855,8 +967,8 @@ document.addEventListener('click', (event) => {
 function removePlayer(element, event = undefined) {
     if (event) { event.stopPropagation() }
 
-    let tempElement = element.closest('.playerRow')
-    if (tempElement === null) { tempElement = element.closest('.playerRowStatic') }
+    let tempElement = element?.closest('.playerRow')
+    if (tempElement == null) { tempElement = element.closest('.playerRowStatic') }
     tempElement = tempElement.parentElement
 
     let row = element.closest('.playerRow')
@@ -1043,16 +1155,21 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
             const dependentForKeys = baseData?.dependentFor
             dependentForKeys.forEach((dependentFor) => {
                 if (gameBaseConfigs[section][dependentFor].dependentOn[event.target.name] === targetValue) {
+                    if (!mainSettings.querySelector(`select[name="${dependentFor}"]`)) {
                     const [l, s, i] = createSetting(game, gameBaseConfigs, section, dependentFor, gameBaseConfigs[section][dependentFor], mainSettings, valueKey = 'default')
                     mainSettings.insertBefore(i, event.target.nextElementSibling.nextElementSibling)
                     mainSettings.insertBefore(s, event.target.nextElementSibling.nextElementSibling)
                     mainSettings.insertBefore(l, event.target.nextElementSibling.nextElementSibling)
+                    addListener(s)
+                    }
                 }
                 else {
+                    if (mainSettings.querySelector(`select[name="${dependentFor}"]`)) {
                     const dependentElement = Array.from(event.target.closest('.setting-row').querySelectorAll('p')).find(el => el.textContent.replace(/\s+/g, "_").trim() === dependentFor)
                     dependentElement.nextElementSibling.remove()
                     dependentElement.nextElementSibling.remove()
                     dependentElement.remove()
+                    }
                 }
             })
         })
@@ -1064,25 +1181,25 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
 
 function deepDiff(obj1, obj2) {
     const diff = {};
-  
+
     for (const key in obj1) {
-      if (!(key in obj2)) {
-        diff[key] = obj1[key]; // key missing in obj2
-      } else {
-        const val1 = obj1[key];
-        const val2 = obj2[key];
-  
-        if (typeof val1 === 'object' && val1 !== null && typeof val2 === 'object' && val2 !== null) {
-          const nestedDiff = deepDiff(val1, val2);
-          if (Object.keys(nestedDiff).length > 0) {
-            diff[key] = nestedDiff;
-          }
-        } else if (val1 !== val2) {
-          diff[key] = val1;
+        if (!(key in obj2)) {
+            diff[key] = obj1[key]; // key missing in obj2
+        } else {
+            const val1 = obj1[key];
+            const val2 = obj2[key];
+
+            if (typeof val1 === 'object' && val1 !== null && typeof val2 === 'object' && val2 !== null) {
+                const nestedDiff = deepDiff(val1, val2);
+                if (Object.keys(nestedDiff).length > 0) {
+                    diff[key] = nestedDiff;
+                }
+            } else if (val1 !== val2) {
+                diff[key] = val1;
+            }
         }
-      }
     }
-  
+
     return diff;
 }
 
