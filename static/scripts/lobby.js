@@ -125,6 +125,26 @@ function swapDifficulty(element) {
     const newDifficulty = (index < computerDifficulties.length - 1) ? computerDifficulties[index + 1] : computerDifficulties[0];
 
     element.textContent = newDifficulty
+    updateComputerSettings(element.closest('.game-item').id, element.parentElement.firstChild.textContent, newDifficulty)
+    console.log('updated')
+}
+
+async function updateComputerSettings(id, name, difficulty) {
+    response = await fetch(`${BASE_URL}/lobby/update_computer_settings`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 'id': parseInt(id), "Name" : name, "computer_settings" : {"Difficulty" : difficulty} })
+    });
+
+    // Verify the password was correct
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to update ${name}'s difficulty; error: ${error}`)
+        console.log(error)
+        return
+    }
 }
 
 function loadGames(game) {
@@ -226,7 +246,7 @@ function addComputer(element, gameStatus, host) {
             randomName = botNames[Math.floor(Math.random() * botNames.length)];
         } while (names.includes(randomName));
 
-        const div = createplayersElement({ "Name": randomName, "Type": "Computer", "Difficulty": "Normal" }, { randomName: "true" }, gameStatus, host)
+        const div = createplayersElement({ "Name": randomName, "Type": "Computer", "Difficulty": "Normal" }, gameStatus, host)
         container.insertBefore(div, container.lastChild)
     }
     else {

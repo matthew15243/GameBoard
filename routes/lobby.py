@@ -180,17 +180,34 @@ def join_game():
             "player_name": user
         }).execute()
 
-        if response.data is None:
-            return jsonify({
-                "success": False,
-                "error": response.error.get("message", "Unknown error")
-            }), 400
-        
         return jsonify({"success": True}), 200
 
     except Exception as e:
         print(e)
         return jsonify({"success": False, "error": str(e)}), 500
+
+@lobby_bp.route('/update_computer_settings', methods=['POST'])
+def update_computer_settings():
+    data = request.get_json()
+    game_id = data['id']              # bigint
+    name = data['Name']      # e.g., "Chimera"
+    new_settings = data['computer_settings']  # dict, e.g., {"Difficulty": "Hard"}
+
+    try:
+        response = supabase_client.rpc(
+            'update_computer_settings',
+            {
+                'game_id': game_id,
+                'player_name': name,
+                'new_settings': new_settings
+            }
+        ).execute()
+
+        return jsonify({"message": "Computer settings updated successfully"}), 200
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @lobby_bp.route('/leave_game', methods=['POST'])
 def leave_game():
@@ -206,10 +223,7 @@ def leave_game():
             "player_name": user
         }).execute()
 
-        if not response.data:
-            return jsonify({"success": True, "message": "Player removed"}), 200
-        else:
-            return jsonify({"success": False, "error": response.data}), 400
+        return jsonify({"success": True, "message": "Player removed"}), 200
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
