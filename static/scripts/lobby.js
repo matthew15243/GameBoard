@@ -1,10 +1,5 @@
-const activeGames = document.getElementById("activeGames");
 const gameCounts = {};
 const user = JSON.parse(localStorage.getItem('user')).username
-const computerDifficulties = ['Easy', 'Normal', 'Hard']
-let configPatch = {};
-let debounceTimer = null;
-const DEBOUNCE_DELAY = 3000; // 3 seconds
 const socket = io.connect(`${BASE_URL}`);
 
 // ================================ //
@@ -53,11 +48,8 @@ socket.on('game_update', (data) => {
             // Player Container Changes
             if (removals?.players && additions?.players) {
                 const currentPlayersContainer = document.getElementById(`playersContainer${id}`)
-                console.log(currentPlayersContainer)
                 const newPlayersContainer = createplayersElements(data.record.players, data.record.status, host, id)
-                console.log(newPlayersContainer)
                 currentPlayersContainer.replaceWith(newPlayersContainer)
-                console.log('success')
             }
             else {
             if (removals?.players) {
@@ -132,13 +124,13 @@ function formatDuration(seconds, useFullUnits = true) {
 }
 
 function swapDifficulty(element) {
+    const computerDifficulties = ['Easy', 'Normal', 'Hard']
     const difficulty = element.textContent
     const index = computerDifficulties.indexOf(difficulty)
     const newDifficulty = (index < computerDifficulties.length - 1) ? computerDifficulties[index + 1] : computerDifficulties[0];
 
     element.textContent = newDifficulty
     updateComputerSettings(element.closest('.game-item').id, element.parentElement.firstChild.textContent, newDifficulty)
-    console.log('updated')
 }
 
 async function updateComputerSettings(id, name, difficulty) {
@@ -252,15 +244,11 @@ async function requestComputer(id) {
 }
 
 async function addComputer(element, gameStatus, host) {
-    // const botNames = [
-        // "AlphaBot", "BotimusPrime", "DataStorm", "RoboRex", "CircuitSurge", "QuantumBot", "Botzilla", "RAMbo", "BitBandit", "ByteSize", "AutoMate"
-    // ];
-
     const container = element.closest('.playersContainer')
     const playerCount = container.children.length - 2
     const totalCount = parseInt(element.closest('.game-details').querySelector(`select[name="Players"]`).value)
 
-    // if (totalCount >= (playerCount + 1)) {
+    if (totalCount >= (playerCount + 1)) {
         const response = await fetch(`${BASE_URL}/lobby/add_computer`, {
         method: "POST",
         headers: {
@@ -277,35 +265,15 @@ async function addComputer(element, gameStatus, host) {
       else {
         console.log('FAILURE')
       }
-        // Get the current players
-        // let names = []
-        // for (const child of container.children) {
-        //     const span = child.querySelectorAll('span')[1];
-        //     if (span) {
-        //         let name = span.textContent.replace(' Hard', '').replace(' Easy', '').replace(' Normal', '').replace(' (Host)', '')
-        //         names.push(name)
-        //     }
-        // }
-
-        // let randomName;
-
-        // do {
-        //     randomName = botNames[Math.floor(Math.random() * botNames.length)];
-        // } while (names.includes(randomName));
-
-        // const div = createplayersElement({ "Name": randomName, "Type": "Computer", "Difficulty": "Normal" }, gameStatus, host)
-        // container.insertBefore(div, container.lastChild)
-    // }
-    // else {
-    //     alert(`Please increase the player count or remove a player from the game before adding a computer`)
-    // }
+    }
 
     adjustPlayerCount(element)
 }
 
 function createplayersElement(playerObject, gameStatus, host) {
     const name = playerObject.Name
-    const div = document.createElement('label');
+    // const div = document.createElement('label');
+    const div = document.createElement('div');
     div.className = (user === host && gameStatus === "Joinable") ? 'playerRow' : 'playerRowStatic'
 
     // Add the first span, sort symbol if the user is the same as the host
@@ -316,26 +284,91 @@ function createplayersElement(playerObject, gameStatus, host) {
 
     // Add the name to the player div element
     playerName = document.createElement('span')
-    playerName.innerHTML = `${name}${name === host ? ' (Host)' : ''}${playerObject?.Type === 'Computer' ? '<button style = "margin-left: 2em; padding: 0.25em 1em;"' + ((gameStatus === "Joinable" && host === user) ? ' onclick="swapDifficulty(this)">' : ' disabled>') + playerObject?.Difficulty + '</button>' : ''}`;
+    playerName.innerHTML = `${name}${name === host ? ' (Host)' : ''}${playerObject?.Type === 'Computer' ? '<button style = "margin-left: 2em; padding: 0.25em 1em;"' + ((gameStatus === "Joinable" && host === user) ? ' event.stopPropagation(); onclick="swapDifficulty(this)">' : ' disabled>') + playerObject?.Difficulty + '</button>' : ''}`;
+    playerName.dataset.name = name
     div.appendChild(playerName)
 
     // Add the player status check box
     const playerStatus = document.createElement('input')
     playerStatus.type = 'checkbox'
     playerStatus.id = name
-    // playerStatus.checked = playerReadyStatuses[name]
     playerStatus.checked = playerObject.IsReady
     playerStatus.disabled = !(name === user && gameStatus !== 'Active')
     div.appendChild(playerStatus)
+    playerStatus.addEventListener('change', (event) => {
+        updateStatus(event.target.closest('.game-item').id, event.target.checked)
+    })
 
     // Add the ✖️ for removing / booting a player
     if (host === user && gameStatus === "Joinable") {
         const bootPlayer = document.createElement('span')
-        if (name !== host) { bootPlayer.innerHTML = `<span class='removePlayer' onclick="removePlayer(this, event)">✖️</span>` }
+        if (name !== host) {
+            bootPlayer.classList.add('removePlayer')
+            bootPlayer.onclick = () => {
+                removePlayer(bootPlayer, name)
+            }
+            bootPlayer.textContent = '✖️'
+        }
         div.appendChild(bootPlayer)
     }
 
     return div
+}
+
+async function updateStatus(id, status) {
+    response = await fetch(`${BASE_URL}/lobby/update_player_ready_status`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 'id': parseInt(id), "player" : user, "status" : castValue(status) })
+    });
+
+    // Verify the password was correct
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to update ready status; error: ${error}`)
+        console.log(error)
+        return
+    }
+}
+
+function getPlayers(container) {
+    const players = container.querySelectorAll('span[data-name]:not([data-name=""])')
+    let playerObjects = []
+
+    Array.from(players).forEach((element) => {
+        const isComputer = !!element?.querySelector('button');
+        const difficulty = element?.querySelector('button')?.textContent;
+    
+        playerObjects.push({
+            "Name": element.dataset.name,
+            "Type": isComputer ? 'Computer' : 'Human',
+            "IsReady": element?.closest('.playerRow')?.querySelector('input')?.checked 
+                ?? element?.closest('.playerRowStatic')?.querySelector('input')?.checked,
+            ...(isComputer && { "Difficulty": difficulty })
+        });
+    }); 
+
+    return playerObjects
+}
+
+async function reorderPlayers(id, orderedNames) {
+    response = await fetch(`${BASE_URL}/lobby/reorder_players`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 'id': parseInt(id), "user" : user, "players" : orderedNames})
+    });
+
+    // Verify the password was correct
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to update player order; error: ${error}`)
+        console.log(error)
+        return
+    }
 }
 
 function createplayersElements(players, gameStatus, host, id) {
@@ -348,12 +381,19 @@ function createplayersElements(players, gameStatus, host, id) {
         Sortable.create(playersContainer, {
             animation: 150,         // smooth dragging animation
             draggable: '.playerRow', // define what is draggable
+            onEnd: () => {
+                const id = playersContainer.closest('.game-item').id
+                const playerObjects = getPlayers(playersContainer)
+                const orderedNames = playerObjects.map(p => p.Name);
+                reorderPlayers(id, orderedNames)
+            }
         });
     }
 
     // create the headers
     {
-        const div = document.createElement('label');
+        // const div = document.createElement('label');
+        const div = document.createElement('div');
         div.className = 'playerRowStatic'
         div.id = 'playerHeaders'
         playersContainer.appendChild(div);
@@ -376,7 +416,8 @@ function createplayersElements(players, gameStatus, host, id) {
 
     // Add the 'Add Computer' button
     if (gameStatus === "Joinable" && user === host) {
-        const div = document.createElement('label');
+        // const div = document.createElement('label');
+        const div = document.createElement('div');
         div.className = 'computerRowStatic'
         playersContainer.appendChild(div);
 
@@ -599,44 +640,19 @@ function addListener(element) {
         const option = event.target.name
         const section = event.target.closest('.setting-row').parentElement.previousElementSibling.textContent.replace(/\s+/g, '_')
         const trueValue = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id === id)[0].configurations[section][option].value
-        if (trueValue !== value) { queueConfigChange(section, option, value, id) }
+        // if (trueValue !== value) { queueConfigChange(section, option, value, id) }
+        if (trueValue !== value) { updateConfig(section, option, value, id) }
     })
 }
 
-function queueConfigChange(section, option, newValue, id) {
-    // Step 1: Add the change to the patch object
-    configPatch = {
-      ...configPatch,
+async function updateConfig(section, option, newValue, gameId) {
+    const configPatch = {
       [section]: {
-        ...(configPatch[section] || {}),
         [option]: {
-          ...(configPatch[section]?.[option] || {}),
           value: newValue
         }
       }
     };
-  
-    // Step 2: Reset debounce timer
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-  
-    debounceTimer = setTimeout(() => {
-      // Step 3: After delay with no changes, send to backend
-      sendConfigPatch(id);
-      configPatch = {}; // reset after sending
-    }, DEBOUNCE_DELAY);
-  }
-  
-  async function sendConfigPatch(gameId) {
-    if (Object.keys(configPatch).length === 0) return;
-  
-    // Disable selects
-    const container = document.getElementById(gameId);
-
-    container.querySelectorAll("select").forEach(select => {
-        select.disabled = true;
-    });
   
     const response = await fetch(`${BASE_URL}/lobby/update_config`, {
       method: "POST",
@@ -649,18 +665,10 @@ function queueConfigChange(section, option, newValue, id) {
       })
     });
   
-    if (response.status == 200) {
-        configPatch = {}
+    if (response.status !== 200) {
+      const error = await response.json();
+      alert(`Failed to update config: ${error}`);
     }
-    else {
-        const error = await response.json()
-        alert(`Failed to create the game: ${error}`)
-    }
-
-    // Re-enable selects
-    container.querySelectorAll("select").forEach(select => {
-        select.disabled = false;
-    });
   }
 
 function adjustPlayerCount(element) {
@@ -869,12 +877,12 @@ async function leaveGame(element) {
     const id = element.closest('.game-item').id
 
     // Update Supabase
-    response = await fetch(`${BASE_URL}/lobby/leave_game`, {
+    response = await fetch(`${BASE_URL}/lobby/remove_player`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify(parseInt(id))
+        body: JSON.stringify({'id' : parseInt(id), 'player' : user})
     });
 
     // Verify that the request was successful
@@ -892,12 +900,22 @@ function leaveGameUIUpdate(element, player) {
         node.nodeType === Node.TEXT_NODE && node.textContent.trim() === player
       )
     );
-    if (el !== null) {
-        removePlayer(el)
-    }
+
+    // Remove the player
+    let playerRow = el.closest('.playerRow')
+    if (playerRow == null) { playerRow = el.closest('.playerRowStatic') }
+    playerRow.remove()
+
+    // Adjust the player count
     adjustPlayerCount(element)
+
+    // Adjust the button
     element.textContent = 'Join'
     element.onclick = function () { joinGame(this) }
+
+    // Change the 'lock' image to the 'unlock' image
+    const lock = element.closest('.game-item').querySelector('img')
+    if (lock) { lock.src = "https://assets.dryicons.com/uploads/icon/svg/3534/lock.svg" }
 }
 
 function viewRules() { alert("View Rules Clicked"); }
@@ -1046,22 +1064,26 @@ document.addEventListener('click', (event) => {
 
 })
 
-function removePlayer(element, event = undefined) {
-    if (event) { event.stopPropagation() }
-
+async function removePlayer(element, name) {
     console.log(element)
-    let tempElement = element?.closest('.playerRow')
-    console.log(tempElement)
-    if (tempElement == null) { tempElement = element?.closest('.playerRowStatic') }
-    console.log(tempElement)
-    tempElement = tempElement.parentElement
-    console.log(tempElement)
+    // Get the game id
+    const id = element.closest('.game-item').id
 
-    let row = element.closest('.playerRow')
-    if (row !== null) { row.remove() }
-    else { element.closest('.playerRowStatic').remove() }
+    // Update Supabase
+    response = await fetch(`${BASE_URL}/lobby/remove_player`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({'id' : parseInt(id), 'player' : name})
+    });
 
-    adjustPlayerCount(tempElement)
+    // Verify that the request was successful
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        return
+    }
 }
 
 function range(start, end, step = 1) {

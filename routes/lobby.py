@@ -248,10 +248,13 @@ def update_computer_settings():
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-@lobby_bp.route('/leave_game', methods=['POST'])
-def leave_game():
-    game_id = request.get_json()
+@lobby_bp.route('/remove_player', methods=['POST'])
+def remove_player():
+    data = request.get_json()
+    game_id = data['id']
+    player = data['player']
     user = session.get("user")
+    print(game_id, player, user)
 
     if not user:
         return jsonify({"error": "Not logged in"}), 403
@@ -259,7 +262,8 @@ def leave_game():
     try:
         response = supabase_client.rpc("remove_player_from_game", {
             "game_id": game_id,
-            "player_name": user
+            "player_name": player,
+            "requesting_user" : user
         }).execute()
 
         return jsonify({"success": True, "message": "Player removed"}), 200
@@ -286,6 +290,57 @@ def update_config():
             return jsonify({"success": True}), 200
         else:
             return jsonify({"success": False, "error": "Update failed"}), 400
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@lobby_bp.route('/update_player_ready_status', methods=['POST'])
+def update_player_ready_status():
+    data = request.get_json()
+    game_id = data.get("id")
+    player = data.get("player")
+    status = data.get("status")
+
+    if (not game_id or not player or 'status' not in data):
+        return jsonify({"success": False, "error": "Missing id, player name, or status"}), 400
+    
+    if player != session['user']:
+         return jsonify({"Unable to alter someone else's status"}), 403
+    
+    try:
+        response = supabase_client.rpc("update_player_ready_status", {
+            "game_id": game_id,
+            "player_name": player,
+            "is_ready": status
+        }).execute()
+
+        print(response)
+
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@lobby_bp.route('/reorder_players', methods=['POST'])
+def reorder_players():
+    data = request.get_json()
+    game_id = data.get("id")
+    players = data.get("players")
+    user = data.get("user")
+
+    if (not game_id or not players or not user):
+        return jsonify({"success": False, "error": "Missing id, user, or player ordering"}), 400
+    
+    if user != session['user']:
+         return jsonify({"Unable to alter someone else's status"}), 403
+    
+    try:
+        response = supabase_client.rpc("reorder_players_by_name", {
+        "game_id": game_id,
+        "ordered_names": players
+    }).execute()
+
+        return jsonify({"success": True}), 200
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
