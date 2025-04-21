@@ -1,15 +1,155 @@
-const activeGames = document.getElementById("activeGames");
 const gameCounts = {};
 const user = JSON.parse(localStorage.getItem('user')).username
-const computerDifficulties = ['Easy', 'Normal', 'Hard']
-
 const socket = io.connect(`${BASE_URL}`);
 
-// Listen for game updates
+// ================================ //
+//            Web Hooks             //
+// ================================ //
 socket.on('game_update', (data) => {
     console.log("Game updated:", data);
-    // updateGameList(data);
+
+    // Insert / Game Created
+    if (data.type === "INSERT") {
+        // Reset the active games in local storage
+        const games = JSON.parse(localStorage.getItem("activeGames") || "[]");
+        games.push(data.record);
+        localStorage.setItem("activeGames", JSON.stringify(games));
+        if (user === data.record.host) { addGameElement(data.record.id, shouldPrepend = true) }
+        else { addGameElement(data.record.id) }
+    }
+
+    // Delete / Game Deleted
+    if (data.type === "DELETE") {
+        // Reset the active games in local storage
+        const id = data.old_record.id
+        const games = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id !== id);
+        localStorage.setItem("activeGames", JSON.stringify(games));
+
+        const element = document.getElementById(id).querySelector('.delete')
+        deleteGameUpdateUI(element, data.old_record.game)
+    }
+
+    if (data.type === "UPDATE") {
+        // Get the changes
+        const removals = deepDiff(data.old_record, data.record)
+        const additions = deepDiff(data.record, data.old_record)
+
+        // Get important information
+        const id = data.record.id
+        const host = data.record.host
+
+        // Update the local Storage
+        const games = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id !== id)
+        games.push(data.record);
+        localStorage.setItem("activeGames", JSON.stringify(games));
+
+        if (data.record.status == 'Joinable') {
+
+            // Player Container Changes
+            if (removals?.players && additions?.players) {
+                const currentPlayersContainer = document.getElementById(`playersContainer${id}`)
+                const newPlayersContainer = createplayersElements(data.record.players, data.record.status, host, id)
+                currentPlayersContainer.replaceWith(newPlayersContainer)
+            }
+            else {
+            if (removals?.players) {
+                Object.keys(removals.players).forEach((obj) => {
+                    leaveGameUIUpdate(document.getElementById(`actionButton${id}`), removals.players[obj].Name)
+                })
+            }
+            if (additions?.players) {
+                Object.keys(additions.players).forEach((obj) => {
+                    joinGameUIUpdate(document.getElementById(`actionButton${id}`), additions.players[obj])
+                })
+            }
+            }
+
+            if (additions?.configurations) {
+                const gameConfigs = JSON.parse(localStorage.getItem('playableGames')).filter(item => item.game == data.record.game)
+                Object.keys(additions.configurations).forEach((section) => {
+                    Object.keys(additions.configurations[section]).forEach((option) => {
+                        if (user === host) {
+                            try {
+                                const element = document.getElementById(id).querySelector(`select[name="${option}"]`)
+                                if (castValue(element.value) !== additions.configurations[section][option].value) {
+                                    element.value = additions.configurations[section][option].value
+                                    element.dispatchEvent(new Event("change"))
+                                }
+                            } catch (e) { console.log(e)}
+                        }
+                        else {
+                            try {
+                                const element = document.getElementById(id).querySelector(`p[data-name="${option}"]`).nextElementSibling
+                                element.textContent = additions.configurations[section][option].value
+                                element.dispatchEvent(new Event("change")) // Trigger a change event if there is an event listener
+                            } catch (e) { }
+                        }
+                    })
+                })
+            }
+        }
+
+    }
+
 });
+
+// ================================ //
+//         Helper Functions         //
+// ================================ //
+function formatDuration(seconds, useFullUnits = true) {
+    const units = [
+        { label: 'day', value: 86400 },
+        { label: 'hour', value: 3600 },
+        { label: 'minute', value: 60 },
+        { label: 'second', value: 1 },
+    ];
+
+    const parts = [];
+
+    for (const { label, value } of units) {
+        const unitAmount = Math.floor(seconds / value);
+        if (unitAmount > 0) {
+            if (useFullUnits) { parts.push(`${unitAmount} ${label}${unitAmount > 1 ? 's' : ''}`) }
+            else { parts.push(`${unitAmount} ${label[0]}`) }
+            seconds %= value;
+        }
+    }
+
+    if (parts.length === 0) return '0 seconds';
+    if (parts.length === 1) return parts[0];
+
+    // Join with commas and 'and' before the last part
+    if (useFullUnits) { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
+    else { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
+}
+
+function swapDifficulty(element) {
+    const computerDifficulties = ['Easy', 'Normal', 'Hard']
+    const difficulty = element.textContent
+    const index = computerDifficulties.indexOf(difficulty)
+    const newDifficulty = (index < computerDifficulties.length - 1) ? computerDifficulties[index + 1] : computerDifficulties[0];
+
+    element.textContent = newDifficulty
+    updateComputerSettings(element.closest('.game-item').id, element.parentElement.firstChild.textContent, newDifficulty)
+}
+
+async function updateComputerSettings(id, name, difficulty) {
+    response = await fetch(`${BASE_URL}/lobby/update_computer_settings`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 'id': parseInt(id), "Name" : name, "computer_settings" : {"Difficulty" : difficulty} })
+    });
+
+    // Verify the password was correct
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to update ${name}'s difficulty; error: ${error}`)
+        console.log(error)
+        return
+    }
+}
 
 function loadGames(game) {
     // Close the menu
@@ -84,80 +224,56 @@ function loadGames(game) {
     sortedGames.forEach(g => addGameElement(g.id));
 }
 
-function formatDuration(seconds, useFullUnits = true) {
-    const units = [
-        { label: 'day', value: 86400 },
-        { label: 'hour', value: 3600 },
-        { label: 'minute', value: 60 },
-        { label: 'second', value: 1 },
-    ];
-
-    const parts = [];
-
-    for (const { label, value } of units) {
-        const unitAmount = Math.floor(seconds / value);
-        if (unitAmount > 0) {
-            if (useFullUnits) { parts.push(`${unitAmount} ${label}${unitAmount > 1 ? 's' : ''}`) }
-            else { parts.push(`${unitAmount} ${label[0]}`) }
-            seconds %= value;
-        }
-    }
-
-    if (parts.length === 0) return '0 seconds';
-    if (parts.length === 1) return parts[0];
-
-    // Join with commas and 'and' before the last part
-    if (useFullUnits) { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
-    else { return parts.slice(0, -1).join(', ') + ' ' + parts.slice(-1) }
+async function requestComputer(id) {
+    const response = await fetch(`${BASE_URL}/lobby/add_computer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: parseInt(id),
+        })
+      });
+    
+      if (response.status == 200) {
+        console.log('SUCCESS')
+      }
+      else {
+        console.log('FAILURE')
+      }
 }
 
-function swapDifficulty(element) {
-    const difficulty = element.textContent
-    const index = computerDifficulties.indexOf(difficulty)
-    const newDifficulty = (index < computerDifficulties.length - 1) ? computerDifficulties[index + 1] : computerDifficulties[0];
-
-    element.textContent = newDifficulty
-}
-
-function addComputer(element, gameStatus, host) {
-    const botNames = [
-        "AlphaBot", "BotimusPrime", "DataStorm", "RoboRex", "CircuitSurge", "QuantumBot", "Botzilla", "RAMbo", "BitBandit", "ByteSize", "AutoMate"
-    ];
-
+async function addComputer(element, gameStatus, host) {
     const container = element.closest('.playersContainer')
     const playerCount = container.children.length - 2
     const totalCount = parseInt(element.closest('.game-details').querySelector(`select[name="Players"]`).value)
 
     if (totalCount >= (playerCount + 1)) {
-        // Get the current players
-        let names = []
-        for (const child of container.children) {
-            const span = child.querySelectorAll('span')[1];
-            if (span) {
-                let name = span.textContent.replace(' Hard', '').replace(' Easy', '').replace(' Normal', '').replace(' (Host)', '')
-                names.push(name)
-            }
-        }
-
-        let randomName;
-
-        do {
-            randomName = botNames[Math.floor(Math.random() * botNames.length)];
-        } while (names.includes(randomName));
-
-        const div = createplayersElement({ "Name": randomName, "Type": "Computer", "Difficulty": "Normal" }, { randomName: "true" }, gameStatus, host)
-        container.insertBefore(div, container.lastChild)
-    }
-    else {
-        alert(`Please increase the player count or remove a player from the game before adding a computer`)
+        const response = await fetch(`${BASE_URL}/lobby/add_computer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: parseInt(element.closest('.game-item').id),
+        })
+      });
+    
+      if (response.status == 200) {
+        console.log('SUCCESS')
+      }
+      else {
+        console.log('FAILURE')
+      }
     }
 
     adjustPlayerCount(element)
 }
 
-function createplayersElement(playerObject, playerReadyStatuses, gameStatus, host) {
+function createplayersElement(playerObject, gameStatus, host) {
     const name = playerObject.Name
-    const div = document.createElement('label');
+    // const div = document.createElement('label');
+    const div = document.createElement('div');
     div.className = (user === host && gameStatus === "Joinable") ? 'playerRow' : 'playerRowStatic'
 
     // Add the first span, sort symbol if the user is the same as the host
@@ -168,28 +284,94 @@ function createplayersElement(playerObject, playerReadyStatuses, gameStatus, hos
 
     // Add the name to the player div element
     playerName = document.createElement('span')
-    playerName.innerHTML = `${name}${name === host ? ' (Host)' : ''}${playerObject?.Type === 'Computer' ? ' <button style = "margin-left: 2em; padding: 0.25em 1em;"' + ((gameStatus === "Joinable" && host === user) ? ' onclick="swapDifficulty(this)">' : ' disabled>') + playerObject?.Difficulty + '</button>' : ''}`;
+    playerName.innerHTML = `${name}${name === host ? ' (Host)' : ''}${playerObject?.Type === 'Computer' ? '<button style = "margin-left: 2em; padding: 0.25em 1em;"' + ((gameStatus === "Joinable" && host === user) ? ' event.stopPropagation(); onclick="swapDifficulty(this)">' : ' disabled>') + playerObject?.Difficulty + '</button>' : ''}`;
+    playerName.dataset.name = name
     div.appendChild(playerName)
 
     // Add the player status check box
     const playerStatus = document.createElement('input')
     playerStatus.type = 'checkbox'
     playerStatus.id = name
-    playerStatus.checked = playerReadyStatuses[name]
+    playerStatus.checked = playerObject.IsReady
     playerStatus.disabled = !(name === user && gameStatus !== 'Active')
     div.appendChild(playerStatus)
+    playerStatus.addEventListener('change', (event) => {
+        updateStatus(event.target.closest('.game-item').id, event.target.checked)
+    })
 
     // Add the ✖️ for removing / booting a player
     if (host === user && gameStatus === "Joinable") {
         const bootPlayer = document.createElement('span')
-        if (name !== host) { bootPlayer.innerHTML = `<span class='removePlayer' onclick="removePlayer(this, event)">✖️</span>` }
+        if (name !== host) {
+            bootPlayer.classList.add('removePlayer')
+            bootPlayer.onclick = () => {
+                removePlayer(bootPlayer, name)
+            }
+            bootPlayer.textContent = '✖️'
+        }
         div.appendChild(bootPlayer)
     }
 
     return div
 }
 
-function createplayersElements(players, playerReadyStatuses, gameStatus, host, id) {
+async function updateStatus(id, status) {
+    response = await fetch(`${BASE_URL}/lobby/update_player_ready_status`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 'id': parseInt(id), "player" : user, "status" : castValue(status) })
+    });
+
+    // Verify the password was correct
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to update ready status; error: ${error}`)
+        console.log(error)
+        return
+    }
+}
+
+function getPlayers(container) {
+    const players = container.querySelectorAll('span[data-name]:not([data-name=""])')
+    let playerObjects = []
+
+    Array.from(players).forEach((element) => {
+        const isComputer = !!element?.querySelector('button');
+        const difficulty = element?.querySelector('button')?.textContent;
+    
+        playerObjects.push({
+            "Name": element.dataset.name,
+            "Type": isComputer ? 'Computer' : 'Human',
+            "IsReady": element?.closest('.playerRow')?.querySelector('input')?.checked 
+                ?? element?.closest('.playerRowStatic')?.querySelector('input')?.checked,
+            ...(isComputer && { "Difficulty": difficulty })
+        });
+    }); 
+
+    return playerObjects
+}
+
+async function reorderPlayers(id, orderedNames) {
+    response = await fetch(`${BASE_URL}/lobby/reorder_players`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 'id': parseInt(id), "user" : user, "players" : orderedNames})
+    });
+
+    // Verify the password was correct
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to update player order; error: ${error}`)
+        console.log(error)
+        return
+    }
+}
+
+function createplayersElements(players, gameStatus, host, id) {
     const playersContainer = document.createElement('div')
     playersContainer.id = `playersContainer${id}`
     playersContainer.classList.add('playersContainer')
@@ -199,12 +381,19 @@ function createplayersElements(players, playerReadyStatuses, gameStatus, host, i
         Sortable.create(playersContainer, {
             animation: 150,         // smooth dragging animation
             draggable: '.playerRow', // define what is draggable
+            onEnd: () => {
+                const id = playersContainer.closest('.game-item').id
+                const playerObjects = getPlayers(playersContainer)
+                const orderedNames = playerObjects.map(p => p.Name);
+                reorderPlayers(id, orderedNames)
+            }
         });
     }
 
     // create the headers
     {
-        const div = document.createElement('label');
+        // const div = document.createElement('label');
+        const div = document.createElement('div');
         div.className = 'playerRowStatic'
         div.id = 'playerHeaders'
         playersContainer.appendChild(div);
@@ -227,7 +416,8 @@ function createplayersElements(players, playerReadyStatuses, gameStatus, host, i
 
     // Add the 'Add Computer' button
     if (gameStatus === "Joinable" && user === host) {
-        const div = document.createElement('label');
+        // const div = document.createElement('label');
+        const div = document.createElement('div');
         div.className = 'computerRowStatic'
         playersContainer.appendChild(div);
 
@@ -241,7 +431,7 @@ function createplayersElements(players, playerReadyStatuses, gameStatus, host, i
     }
 
     players.forEach((playerObject) => {
-        const div = createplayersElement(playerObject, playerReadyStatuses, gameStatus, host)
+        const div = createplayersElement(playerObject, gameStatus, host)
         if (gameStatus === "Joinable" && host === user) {
             playersContainer.insertBefore(div, playersContainer.lastChild)
         }
@@ -268,7 +458,7 @@ function closeGames(idIgnoreList = []) {
  * @param {number} id - The id (as it comes from supabase) for the given game
  * @returns {void} - This builds all necessary elements and adds them directly to the DOM
  */
-function addGameElement(id) {
+function addGameElement(id, shouldPrepend = false) {
     // Pull the configurations from the local storage
     const data = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]
     const activeConfigs = data['configurations']
@@ -278,8 +468,7 @@ function addGameElement(id) {
     const gameStatus = data['status']
     const players = data['players']
     const host = data['host']
-    const playerReadyStatuses = data['player_is_ready_statuses']
-    const maxPlayers = data['max_players']
+    const maxPlayers = data?.configurations?.Game?.Players?.value
     const isLocked = data['password']
 
     let previousValues = new WeakMap()
@@ -299,15 +488,27 @@ function addGameElement(id) {
     if (gameStatus === 'Joinable') {
         const element = document.getElementById('joinable')
         element.style.display = "block"
-        element.appendChild(container);
+        if (!shouldPrepend) { element.appendChild(container) }
+        else {
+            const h4Element = element.querySelector('h4')
+            element.insertBefore(container, h4Element.nextElementSibling)
+        }
     } else if (gameStatus === 'Active') {
         const element = document.getElementById('active')
         element.style.display = "block"
-        element.appendChild(container);
+        if (!shouldPrepend) { element.appendChild(container) }
+        else {
+            const h4Element = element.querySelector('h4')
+            element.insertBefore(container, h4Element.nextElementSibling)
+        }
     } else if (gameStatus === 'Paused') {
         const element = document.getElementById('paused')
         element.style.display = "block"
-        element.appendChild(container);
+        if (!shouldPrepend) { element.appendChild(container) }
+        else {
+            const h4Element = element.querySelector('h4')
+            element.insertBefore(container, h4Element.nextElementSibling)
+        }
     }
 
     // =========================================== //
@@ -316,12 +517,11 @@ function addGameElement(id) {
     const header = document.createElement('div');
     header.classList.add('game-header');
     const deleteGameText = (host === user) ? `<span><span class='delete' onclick='deleteGame(this, "${game}")'>🗑️</span></span>` : `<span>️</span>`
-    // const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<span>🔒</span>` : `<span>🔓✅</span>`) : `<span></span>`
     const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<img src="https://assets.dryicons.com/uploads/icon/svg/3534/lock.svg" style="height: 1.25em"></img>` : `<img src="https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg" style = "height: 1.25em"></img>`) : `<span></span>`
     let buttonText = null
-    if (gameStatus === 'Active') { buttonText = '<button>Resume</button>' }
-    else if (gameStatus === 'Paused') { buttonText = (user === host) ? '<button>Resume</button>' : '' }
-    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? '<button>Start</button>' : ((players.some(p => p.Name === user)) ? '<button onclick = "leaveGame(this)">Leave</button>' : '<button onclick = "joinGame(this)">Join</button>') }
+    if (gameStatus === 'Active') { buttonText = `<button id = 'actionButton${id}'>Resume</button>` }
+    else if (gameStatus === 'Paused') { buttonText = (user === host) ? `<button id = 'actionButton${id}'>Resume</button>` : '' }
+    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? `<button id = 'actionButton${id}'>Start</button>` : ((players.some(p => p.Name === user)) ? `<button id = 'actionButton${id}' onclick = "leaveGame(this)">Leave</button>` : `<button id = 'actionButton${id}' onclick = "joinGame(this)">Join</button>`) }
     header.innerHTML = `
         ${lockText}
         <span>${gameName}</span>
@@ -342,7 +542,7 @@ function addGameElement(id) {
     // Don't add the game details for an active game //
     // ============================================= //
     if (gameStatus === 'Active' || gameStatus === 'Paused') {
-        const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, user, id)
+        const playersContainer = createplayersElements(players, gameStatus, host, user, id)
         details.appendChild(playersContainer)
         return
     }
@@ -364,48 +564,60 @@ function addGameElement(id) {
             // The principal settings (everything in the configurations object from supabase)
             const mainSettings = document.createElement('div')
             mainSettings.classList.add('setting-row');
-            settingContainer.appendChild(mainSettings)
 
             // =================================== //
             // Add the people involved in the game
             // =================================== //
             if (section === 'Game') {
-                const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, id)
+                // const playersContainer = createplayersElements(players, playerReadyStatuses, gameStatus, host, id)
+                const playersContainer = createplayersElements(players, gameStatus, host, id)
                 settingContainer.appendChild(playersContainer)
             }
-
+            settingContainer.appendChild(mainSettings)
 
             // for items in a section (second level of the json object)
             for (const [optionName, optionData] of orderObject(options, 'order')) {
                 if (optionName !== "Name" || !optionData.value.includes("s Game")) {
                     const [label, select, info] = createSetting(game, gameBaseConfigs, section, optionName, optionData, mainSettings, 'value')
+                    // Listen for a change -> send the change to supabase
+                    if (select && select.tagName === 'SELECT') { addListener(select) }
 
-                    //     // Keep track of the initial / old values + add event listener to watch for changes
+                    // Keep track of the initial / old values + add event listener to watch for changes
                     if (optionName.toLowerCase() === 'players') {
                         previousValues.set(select, select.value)
 
                         select.addEventListener('change', event => {
-                            const newValue = event.target.value;
+                            let newValue = undefined
                             const oldValue = previousValues.get(select);
                             const minimumPlayers = gameBaseConfigs?.Game?.Players?.min
                             const maximumPlayers = gameBaseConfigs?.Game?.Players?.max
+                            let totalCount = undefined
+                            let playerCount = undefined
 
-                            const totalCount = parseInt(select.parentElement.querySelector(`select[name="Players"]`).value)
-                            // const gameHeader = select.closest('.game-item').querySelector(`span.player-count`)
-                            const playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 2
-
-                            // Example validation logic
-                            if (totalCount > maximumPlayers || totalCount < minimumPlayers) {
-                                alert(`Sorry, You can't have that many players: ${minimumPlayers} <= Players + Computers <= ${maximumPlayers}`);
-                                select.value = oldValue;
-                            } else if (totalCount < playerCount) {
-                                alert(`Sorry, You can't have more players in the game than the game settings allow. Please remove a player before lowering the ${optionName.toLowerCase()} count`)
-                                select.value = oldValue;
-                            } else {
-                                previousValues.set(select, newValue);
-                                // gameHeader.textContent = `${playerCount} / ${totalCount} playe${(totalCount > 1) ? 'rs' : 'r'}`
-                                adjustPlayerCount(select)
+                            if (event.target.tagName == "SELECT") {
+                                newValue = event.target.value;
+                                totalCount = parseInt(select.parentElement.querySelector(`select[name="Players"]`).value)
+                                playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 2
                             }
+                            else {
+                                newValue = event.target.textContent;
+                                totalCount = parseInt(select.parentElement.querySelector(`p[data-name="Players"]`).textContent)
+                                playerCount = select.closest('.game-item').querySelector('.playersContainer').children.length - 1
+                            }
+
+                            // Validate the change
+                            if (event.target.tagName == 'SELECT') {
+                                if (totalCount > maximumPlayers || totalCount < minimumPlayers) {
+                                    alert(`Sorry, You can't have that many players: ${minimumPlayers} <= Players + Computers <= ${maximumPlayers}`);
+                                    select.value = oldValue;
+                                } else if (totalCount < playerCount) {
+                                    alert(`Sorry, You can't have more players in the game than the game settings allow. Please remove a player before lowering the ${optionName.toLowerCase()} count`)
+                                    select.value = oldValue;
+                                } else {
+                                    previousValues.set(select, newValue);
+                                }
+                            }
+                            adjustPlayerCount(select)
                         });
                     }
 
@@ -420,6 +632,44 @@ function addGameElement(id) {
     }
 
 }
+
+function addListener(element) {
+    element.addEventListener('change', event => {
+        const id = castValue(event.target.closest('.game-item').id)
+        const value = castValue(event.target.value)
+        const option = event.target.name
+        const section = event.target.closest('.setting-row').parentElement.previousElementSibling.textContent.replace(/\s+/g, '_')
+        const trueValue = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id === id)[0].configurations[section][option].value
+        // if (trueValue !== value) { queueConfigChange(section, option, value, id) }
+        if (trueValue !== value) { updateConfig(section, option, value, id) }
+    })
+}
+
+async function updateConfig(section, option, newValue, gameId) {
+    const configPatch = {
+      [section]: {
+        [option]: {
+          value: newValue
+        }
+      }
+    };
+  
+    const response = await fetch(`${BASE_URL}/lobby/update_config`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        id: gameId,
+        config_patch: configPatch
+      })
+    });
+  
+    if (response.status !== 200) {
+      const error = await response.json();
+      alert(`Failed to update config: ${error}`);
+    }
+  }
 
 function adjustPlayerCount(element) {
     const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
@@ -479,7 +729,7 @@ async function createGame() {
             else {
                 datum[child.name] = { "value": (child.value === "") ? null : castValue(child.value) }
 
-                if (child.name === 'Players') { data['max_players'] = parseInt(child.value) }
+                // if (child.name === 'Players') { data['max_players'] = parseInt(child.value) }
             }
             configurations[sections[i].textContent.replace(/\s+/g, "_")] = datum
         })
@@ -488,8 +738,7 @@ async function createGame() {
     data['status'] = "Joinable"
     data['host'] = user
     data['configurations'] = configurations
-    data['players'] = [{ "Name": user, "Type": "Human" }]
-    data['player_is_ready_statuses'] = { [user]: false }
+    data['players'] = [{ "Name": user, "Type": "Human", "IsReady": false }]
 
     response = await fetch(`${BASE_URL}/lobby/create_game`, {
         method: "POST",
@@ -503,7 +752,16 @@ async function createGame() {
         // Reset the page
         header.textContent = `${game} - Available Games`
         document.getElementById('createButton').onclick = () => { createGameTemplate() }
-        loadGames(game)
+
+        // Update the UI to show the active games
+        document.getElementById('creating').style.display = "none"
+
+        const active = document.getElementById('active')
+        if (active.children.length > 1) { active.style.display = "block" }
+        const paused = document.getElementById('paused')
+        if (paused.children.length > 1) { paused.style.display = "block" }
+        const joinable = document.getElementById('joinable')
+        if (joinable.children.length > 1) { joinable.style.display = "block" }
     }
     else {
         const error = await response.json()
@@ -511,6 +769,15 @@ async function createGame() {
     }
 }
 
+/**
+ * This will let the user join a game. It will first check to make sure (according to the client UI) that there is an available
+ * slot. Second, if it is password protected, it will prompt the user for the password. Third, it will send the request off to the
+ * back end and verify that the user isn't already in the game AND that there truly is space in the game. If so, this function will
+ * add the user to the game and update the client's UI.
+ *
+ * @param {Element} element - The 'Join' button element
+ * @returns {void} This update the game for which the element is a part of
+ */
 async function joinGame(element) {
     // Make sure there is room to add another player
     const playerCount = element.closest('.game-item').querySelector('.playersContainer').children.length - 1
@@ -520,10 +787,7 @@ async function joinGame(element) {
         return
     }
 
-    // Grab the Host
-    const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
-
-    // Check the passcode
+    // Check the password
     const id = element.closest('.game-item').id
     const passwordRequired = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]['password']
     let password = undefined
@@ -534,13 +798,13 @@ async function joinGame(element) {
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({"password" : password, 'id' : id})
+            body: JSON.stringify({ "password": password, 'id': id })
         });
 
         // Verify the password was correct
         if (response.status == 201) {
             const data = await response.json()
-            if (!data.data) { alert(`Incorrect Password`); return;}
+            if (!data.data) { alert(`Incorrect Password`); return; }
         }
         else {
             const error = await response.json()
@@ -549,39 +813,119 @@ async function joinGame(element) {
         }
     }
 
+    // Update Supabase
+    response = await fetch(`${BASE_URL}/lobby/join_game`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(parseInt(id))
+    });
 
+    // Verify that the request was successful
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to join ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        return
+    }
+}
+
+/**
+ * This will update the UI for joining a game
+ *
+ * @param {Element} element - The 'Join' button element
+ * @param {string} player - The player that should be added to the game
+ * @returns {void} This update the game for which the element is a part of
+ */
+function joinGameUIUpdate(element, playerObject) {
     // Add the player
+    const id = element.closest('.game-item').id
+    const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]['host']
     const container = element.closest('.game-item').querySelector('.playersContainer')
-    const div = createplayersElement({ "Name": user, "Type": "Human" }, { user: "false" }, "Joinable", host)
-    container.appendChild(div)
+
+    // Get the list of current players
+    const players = Array.from(container.querySelectorAll('span')).map(span => {
+        const cloned = span.cloneNode(true); // Create a deep clone
+        const button = cloned.querySelector('button'); // Find the button
+        if (button) button.remove(); // Remove the button from the clone
+        const playerName = cloned.textContent.trim().replace(' (Host)', '').trim(); 
+        return playerName
+      });
+    
+    // Make sure the player isn't already there
+    let div = undefined
+    if (!players.includes(playerObject.Name)) {
+        div = createplayersElement(playerObject, "Joinable", host)
+        if (user !== host) { container.appendChild(div) }
+        else { container.insertBefore(div, container.lastElementChild) }
+    }
 
     // Adjust the player count
-    adjustPlayerCount(div)
-    
+    if (div != null) { adjustPlayerCount(div) }
+
     // Change the 'Join' button to a 'Leave' button
     element.textContent = 'Leave'
     element.onclick = function () { leaveGame(this) }
 
     // Change the 'lock' image to the 'unlock' image
     const lock = element.closest('.game-item').querySelector('img')
-    lock.src = "https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg"
+    if (lock) { lock.src = "https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg" }
 }
 
-function leaveGame(element) {
-    const el = Array.from(element.closest('.game-item').querySelectorAll('span')).find(el => el.textContent.trim() === user)
-    removePlayer(el)
+async function leaveGame(element) {
+    // Get the game id
+    const id = element.closest('.game-item').id
+
+    // Update Supabase
+    response = await fetch(`${BASE_URL}/lobby/remove_player`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({'id' : parseInt(id), 'player' : user})
+    });
+
+    // Verify that the request was successful
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        return
+    }
+}
+
+function leaveGameUIUpdate(element, player) {
+    const el = Array.from(element.closest('.game-item').querySelectorAll('span'))
+    .find(el =>
+      Array.from(el.childNodes).some(node =>
+        node.nodeType === Node.TEXT_NODE && node.textContent.trim() === player
+      )
+    );
+
+    // Remove the player
+    let playerRow = el.closest('.playerRow')
+    if (playerRow == null) { playerRow = el.closest('.playerRowStatic') }
+    playerRow.remove()
+
+    // Adjust the player count
     adjustPlayerCount(element)
+
+    // Adjust the button
     element.textContent = 'Join'
     element.onclick = function () { joinGame(this) }
+
+    // Change the 'lock' image to the 'unlock' image
+    const lock = element.closest('.game-item').querySelector('img')
+    if (lock) { lock.src = "https://assets.dryicons.com/uploads/icon/svg/3534/lock.svg" }
 }
 
 function viewRules() { alert("View Rules Clicked"); }
 
-async function deleteGame(el, game) {
-    const confirmation = confirm(`You are about to delete "${el.closest('.game-header').querySelector('span').textContent}". This action CANNOT be undone.`)
+async function deleteGame(element, game) {
+    const gameName = Array.from(element.closest('.game-header').querySelectorAll('span')).find(el => el.textContent.trim().toLowerCase().includes('game'))
+    const confirmation = confirm(`You are about to delete "${gameName.textContent}". This action CANNOT be undone.`)
     if (!confirmation) { return }
 
-    const id = el.closest('.game-item').id
+    const id = element.closest('.game-item').id
 
     response = await fetch(`${BASE_URL}/lobby/delete_game`, {
         method: "POST",
@@ -591,22 +935,25 @@ async function deleteGame(el, game) {
         body: JSON.stringify(id)
     });
 
-    if (response.status == 201) { console.log('Game Deleted')}
-    else {
+    if (response.status != 200) {
         const error = await response.json()
         alert(`Failed to Remove game: ${error}`)
         return
     }
+    // deleteGameUpdateUI(element, game)
 
+}
+
+function deleteGameUpdateUI(element, game) {
     // Identify the corresponding game state div
-    gameStateElement = el.parentElement.parentElement.parentElement.parentElement
+    gameStateElement = element.closest('.game-item').parentElement
 
     // Remove the game
-    el.parentElement.parentElement.parentElement.remove();
+    element.closest('.game-item').remove()
 
     // Adjust the playable game's count
     gameCounts[game] = Math.max(0, gameCounts[game] - 1);
-    document.getElementById(`${game}-count`).textContent = gameCounts[game];
+    document.getElementById(`${game.replace(/\s+/g, '_').toLowerCase()}-count`).textContent = gameCounts[game];
 
     // Hide the corresponding game state if there are no longer any games
     if (gameStateElement.children.length === 1) {
@@ -717,18 +1064,26 @@ document.addEventListener('click', (event) => {
 
 })
 
-function removePlayer(element, event = undefined) {
-    if (event) { event.stopPropagation() }
+async function removePlayer(element, name) {
+    console.log(element)
+    // Get the game id
+    const id = element.closest('.game-item').id
 
-    let tempElement = element.closest('.playerRow')
-    if (tempElement === null) { tempElement = element.closest('.playerRowStatic') }
-    tempElement = tempElement.parentElement
+    // Update Supabase
+    response = await fetch(`${BASE_URL}/lobby/remove_player`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({'id' : parseInt(id), 'player' : name})
+    });
 
-    let row = element.closest('.playerRow')
-    if (row !== null) { row.remove() }
-    else { element.closest('.playerRowStatic').remove() }
-
-    adjustPlayerCount(tempElement)
+    // Verify that the request was successful
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        return
+    }
 }
 
 function range(start, end, step = 1) {
@@ -908,16 +1263,21 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
             const dependentForKeys = baseData?.dependentFor
             dependentForKeys.forEach((dependentFor) => {
                 if (gameBaseConfigs[section][dependentFor].dependentOn[event.target.name] === targetValue) {
+                    if (!mainSettings.querySelector(`select[name="${dependentFor}"]`)) {
                     const [l, s, i] = createSetting(game, gameBaseConfigs, section, dependentFor, gameBaseConfigs[section][dependentFor], mainSettings, valueKey = 'default')
                     mainSettings.insertBefore(i, event.target.nextElementSibling.nextElementSibling)
                     mainSettings.insertBefore(s, event.target.nextElementSibling.nextElementSibling)
                     mainSettings.insertBefore(l, event.target.nextElementSibling.nextElementSibling)
+                    addListener(s)
+                    }
                 }
                 else {
+                    if (mainSettings.querySelector(`select[name="${dependentFor}"]`)) {
                     const dependentElement = Array.from(event.target.closest('.setting-row').querySelectorAll('p')).find(el => el.textContent.replace(/\s+/g, "_").trim() === dependentFor)
                     dependentElement.nextElementSibling.remove()
                     dependentElement.nextElementSibling.remove()
                     dependentElement.remove()
+                    }
                 }
             })
         })
@@ -925,6 +1285,30 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
 
 
     return [label, select, info]
+}
+
+function deepDiff(obj1, obj2) {
+    const diff = {};
+
+    for (const key in obj1) {
+        if (!(key in obj2)) {
+            diff[key] = obj1[key]; // key missing in obj2
+        } else {
+            const val1 = obj1[key];
+            const val2 = obj2[key];
+
+            if (typeof val1 === 'object' && val1 !== null && typeof val2 === 'object' && val2 !== null) {
+                const nestedDiff = deepDiff(val1, val2);
+                if (Object.keys(nestedDiff).length > 0) {
+                    diff[key] = nestedDiff;
+                }
+            } else if (val1 !== val2) {
+                diff[key] = val1;
+            }
+        }
+    }
+
+    return diff;
 }
 
 // Start Up

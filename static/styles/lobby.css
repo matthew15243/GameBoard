@@ -256,3 +256,7 @@ button:disabled {
 #gameName {
     padding-left: 0.25em;
 }
+
+input[type="checkbox"]:not(:disabled) {
+    cursor: pointer;
+  }
