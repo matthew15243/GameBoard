@@ -49,6 +49,17 @@ socket.on('game_update', (data) => {
         localStorage.setItem("activeGames", JSON.stringify(games));
 
         if (data.record.status == 'Joinable') {
+
+            // Player Container Changes
+            if (removals?.players && additions?.players) {
+                const currentPlayersContainer = document.getElementById(`playersContainer${id}`)
+                console.log(currentPlayersContainer)
+                const newPlayersContainer = createplayersElements(data.record.players, data.record.status, host, id)
+                console.log(newPlayersContainer)
+                currentPlayersContainer.replaceWith(newPlayersContainer)
+                console.log('success')
+            }
+            else {
             if (removals?.players) {
                 Object.keys(removals.players).forEach((obj) => {
                     leaveGameUIUpdate(document.getElementById(`actionButton${id}`), removals.players[obj].Name)
@@ -58,6 +69,7 @@ socket.on('game_update', (data) => {
                 Object.keys(additions.players).forEach((obj) => {
                     joinGameUIUpdate(document.getElementById(`actionButton${id}`), additions.players[obj])
                 })
+            }
             }
 
             if (additions?.configurations) {
@@ -220,38 +232,73 @@ function loadGames(game) {
     sortedGames.forEach(g => addGameElement(g.id));
 }
 
-function addComputer(element, gameStatus, host) {
-    const botNames = [
-        "AlphaBot", "BotimusPrime", "DataStorm", "RoboRex", "CircuitSurge", "QuantumBot", "Botzilla", "RAMbo", "BitBandit", "ByteSize", "AutoMate"
-    ];
+async function requestComputer(id) {
+    const response = await fetch(`${BASE_URL}/lobby/add_computer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: parseInt(id),
+        })
+      });
+    
+      if (response.status == 200) {
+        console.log('SUCCESS')
+      }
+      else {
+        console.log('FAILURE')
+      }
+}
+
+async function addComputer(element, gameStatus, host) {
+    // const botNames = [
+        // "AlphaBot", "BotimusPrime", "DataStorm", "RoboRex", "CircuitSurge", "QuantumBot", "Botzilla", "RAMbo", "BitBandit", "ByteSize", "AutoMate"
+    // ];
 
     const container = element.closest('.playersContainer')
     const playerCount = container.children.length - 2
     const totalCount = parseInt(element.closest('.game-details').querySelector(`select[name="Players"]`).value)
 
-    if (totalCount >= (playerCount + 1)) {
+    // if (totalCount >= (playerCount + 1)) {
+        const response = await fetch(`${BASE_URL}/lobby/add_computer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: parseInt(element.closest('.game-item').id),
+        })
+      });
+    
+      if (response.status == 200) {
+        console.log('SUCCESS')
+      }
+      else {
+        console.log('FAILURE')
+      }
         // Get the current players
-        let names = []
-        for (const child of container.children) {
-            const span = child.querySelectorAll('span')[1];
-            if (span) {
-                let name = span.textContent.replace(' Hard', '').replace(' Easy', '').replace(' Normal', '').replace(' (Host)', '')
-                names.push(name)
-            }
-        }
+        // let names = []
+        // for (const child of container.children) {
+        //     const span = child.querySelectorAll('span')[1];
+        //     if (span) {
+        //         let name = span.textContent.replace(' Hard', '').replace(' Easy', '').replace(' Normal', '').replace(' (Host)', '')
+        //         names.push(name)
+        //     }
+        // }
 
-        let randomName;
+        // let randomName;
 
-        do {
-            randomName = botNames[Math.floor(Math.random() * botNames.length)];
-        } while (names.includes(randomName));
+        // do {
+        //     randomName = botNames[Math.floor(Math.random() * botNames.length)];
+        // } while (names.includes(randomName));
 
-        const div = createplayersElement({ "Name": randomName, "Type": "Computer", "Difficulty": "Normal" }, gameStatus, host)
-        container.insertBefore(div, container.lastChild)
-    }
-    else {
-        alert(`Please increase the player count or remove a player from the game before adding a computer`)
-    }
+        // const div = createplayersElement({ "Name": randomName, "Type": "Computer", "Difficulty": "Normal" }, gameStatus, host)
+        // container.insertBefore(div, container.lastChild)
+    // }
+    // else {
+    //     alert(`Please increase the player count or remove a player from the game before adding a computer`)
+    // }
 
     adjustPlayerCount(element)
 }
@@ -787,13 +834,26 @@ function joinGameUIUpdate(element, playerObject) {
     const id = element.closest('.game-item').id
     const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == id)[0]['host']
     const container = element.closest('.game-item').querySelector('.playersContainer')
-    const div = createplayersElement(playerObject, "Joinable", host)
-    if (user !== host) { container.appendChild(div) }
-    else { container.insertBefore(div, container.lastElementChild) }
 
+    // Get the list of current players
+    const players = Array.from(container.querySelectorAll('span')).map(span => {
+        const cloned = span.cloneNode(true); // Create a deep clone
+        const button = cloned.querySelector('button'); // Find the button
+        if (button) button.remove(); // Remove the button from the clone
+        const playerName = cloned.textContent.trim().replace(' (Host)', '').trim(); 
+        return playerName
+      });
+    
+    // Make sure the player isn't already there
+    let div = undefined
+    if (!players.includes(playerObject.Name)) {
+        div = createplayersElement(playerObject, "Joinable", host)
+        if (user !== host) { container.appendChild(div) }
+        else { container.insertBefore(div, container.lastElementChild) }
+    }
 
     // Adjust the player count
-    adjustPlayerCount(div)
+    if (div != null) { adjustPlayerCount(div) }
 
     // Change the 'Join' button to a 'Leave' button
     element.textContent = 'Leave'
@@ -832,7 +892,9 @@ function leaveGameUIUpdate(element, player) {
         node.nodeType === Node.TEXT_NODE && node.textContent.trim() === player
       )
     );
-    removePlayer(el)
+    if (el !== null) {
+        removePlayer(el)
+    }
     adjustPlayerCount(element)
     element.textContent = 'Join'
     element.onclick = function () { joinGame(this) }
@@ -987,9 +1049,13 @@ document.addEventListener('click', (event) => {
 function removePlayer(element, event = undefined) {
     if (event) { event.stopPropagation() }
 
+    console.log(element)
     let tempElement = element?.closest('.playerRow')
-    if (tempElement == null) { tempElement = element.closest('.playerRowStatic') }
+    console.log(tempElement)
+    if (tempElement == null) { tempElement = element?.closest('.playerRowStatic') }
+    console.log(tempElement)
     tempElement = tempElement.parentElement
+    console.log(tempElement)
 
     let row = element.closest('.playerRow')
     if (row !== null) { row.remove() }

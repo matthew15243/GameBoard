@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session, redirect ,url_for
 import supabase
 import os
+import random
 from dotenv import load_dotenv
 
 load_dotenv('./games.env')
@@ -174,10 +175,48 @@ def join_game():
     }
 
     try:
-        response = supabase_client.rpc("add_player_to_game", {
+        supabase_client.rpc("add_player_to_game", {
             "game_id": game_id,
             "new_player": new_player,
             "player_name": user
+        }).execute()
+
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        print(e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@lobby_bp.route('/add_computer', methods=['POST'])
+def add_computer():
+    game_id = request.get_json()['id']
+
+    # Verify the user is logged in
+    user = session.get("user")
+    if not user:
+        return jsonify({"error": "Not logged in"}), 403
+    
+    try:
+        response = supabase_client.table('ActiveGames').select('players').eq('id', game_id).execute()
+        playerNames = response.data[0]['players']
+        playerNames = [x['Name'] for x in playerNames]
+    
+        # Get a computer name
+        botNames = ["AlphaBot", "BotimusPrime", "DataStorm", "RoboRex", "CircuitSurge", "QuantumBot", "Botzilla", "RAMbo", "BitBandit", "ByteSize", "AutoMate"]
+        botNames = [x for x in botNames if x not in playerNames]
+        computerName = random.choice(botNames)
+
+        new_player = {
+            "Name": computerName,
+            "Type": "Computer",
+            "Difficulty": "Normal",
+            "IsReady" : True
+        }
+
+        response = supabase_client.rpc("add_player_to_game", {
+            "game_id": game_id,
+            "new_player": new_player,
+            "player_name": computerName
         }).execute()
 
         return jsonify({"success": True}), 200
@@ -234,21 +273,14 @@ def update_config():
     game_id = data.get("id")
     config_patch = data.get("config_patch")
 
-    print(game_id)
-    print(config_patch)
-
     if not game_id or not config_patch:
         return jsonify({"success": False, "error": "Missing id or config_patch"}), 400
     
-    print('valid data')
-
     try:
         response = supabase_client.rpc("update_nested_jsonb_config", {
             "game_id": game_id,
             "config_patch": config_patch
         }).execute()
-
-        print('received response!')
 
         if response.data is not None:
             return jsonify({"success": True}), 200
