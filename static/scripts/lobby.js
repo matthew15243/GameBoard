@@ -16,6 +16,11 @@ socket.on('game_update', (data) => {
         localStorage.setItem("activeGames", JSON.stringify(games));
         if (user === data.record.host) { addGameElement(data.record.id, shouldPrepend = true) }
         else { addGameElement(data.record.id) }
+
+        // Update the side bar
+        const currentGame = data.record.game.replace(/\s+/g, "").toLowerCase();
+        const gameList = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == currentGame && ((item.status === 'Joinable' && (item.players.length < item.configurations.Game.Players.value)) || item.players.some(p => p.Name === user)))
+        document.getElementById(`${currentGame}-count`).textContent = gameList.length;
     }
 
     // Delete / Game Deleted
@@ -27,12 +32,22 @@ socket.on('game_update', (data) => {
 
         const element = document.getElementById(id).querySelector('.delete')
         deleteGameUpdateUI(element, data.old_record.game)
+
+        // Update the side bar
+        const currentGame = data.old_record.game.replace(/\s+/g, "").toLowerCase();
+        const gameList = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == currentGame && ((item.status === 'Joinable' && (item.players.length < item.configurations.Game.Players.value)) || item.players.some(p => p.Name === user)))
+        document.getElementById(`${currentGame}-count`).textContent = gameList.length;
     }
 
     if (data.type === "UPDATE") {
         // Get the changes
         const removals = deepDiff(data.old_record, data.record)
         const additions = deepDiff(data.record, data.old_record)
+
+        // console.log("Removals Object")
+        // console.log(removals)
+        // console.log("Additions Object")
+        // console.log(additions)
 
         // Get important information
         const id = data.record.id
@@ -43,6 +58,40 @@ socket.on('game_update', (data) => {
         games.push(data.record);
         localStorage.setItem("activeGames", JSON.stringify(games));
 
+        // Change the game status
+        if (removals?.status && additions?.status) {
+            const element = document.getElementById(id)
+            const oldParent = document.getElementById(data.old_record.status.toLowerCase())
+            const newParent = document.getElementById(data.record.status.toLowerCase())
+            if (newParent != null) {
+                newParent.appendChild(element)
+                newParent.style.display = 'block'
+
+                // Update the action button
+                const actionButton = element.querySelector(`#actionButton${id}`)
+                if (additions.status === 'Joinable') {
+                    actionButton.textContent = (user === host) ? 'Start' : 'Join'
+                    actionButton.onclick = () => { (user === host) ? startGame(id) : joinGame(actionButton) }
+                }
+                else if (additions.status === 'Paused') {
+                    actionButton.textContent = (user === host) ? 'Start' : 'Resume'
+                    actionButton.onclick = () => { (user === host) ? startGame(id) : resumeGame(id) }
+                }
+                else if (additions.status === 'Active') {
+                    actionButton.textContent = 'Resume'
+                    actionButton.onclick = () => { resumeGame(id) }
+                }
+            }
+            else {
+                element.remove()
+            }
+
+            // Hide the game status if it becomes empty
+            if (oldParent.childElementCount === 1) {
+                oldParent.style.display = "none"
+            }
+        }
+
         if (data.record.status == 'Joinable') {
 
             // Player Container Changes
@@ -52,16 +101,20 @@ socket.on('game_update', (data) => {
                 currentPlayersContainer.replaceWith(newPlayersContainer)
             }
             else {
-            if (removals?.players) {
-                Object.keys(removals.players).forEach((obj) => {
-                    leaveGameUIUpdate(document.getElementById(`actionButton${id}`), removals.players[obj].Name)
-                })
-            }
-            if (additions?.players) {
-                Object.keys(additions.players).forEach((obj) => {
-                    joinGameUIUpdate(document.getElementById(`actionButton${id}`), additions.players[obj])
-                })
-            }
+                if (removals?.players) {
+                    Object.keys(removals.players).forEach((obj) => {
+                        const element = document.getElementById(`actionButton${id}`)
+                        // If the element exists, remove the player
+                        if (element) { leaveGameUIUpdate(document.getElementById(`actionButton${id}`), removals.players[obj].Name) }
+                        // Otherwise, add the element back in as a joinable game
+                        else { addGameElement(id) }
+                    })
+                }
+                if (additions?.players) {
+                    Object.keys(additions.players).forEach((obj) => {
+                        joinGameUIUpdate(document.getElementById(`actionButton${id}`), additions.players[obj])
+                    })
+                }
             }
 
             if (additions?.configurations) {
@@ -75,7 +128,7 @@ socket.on('game_update', (data) => {
                                     element.value = additions.configurations[section][option].value
                                     element.dispatchEvent(new Event("change"))
                                 }
-                            } catch (e) { console.log(e)}
+                            } catch (e) { console.log(e) }
                         }
                         else {
                             try {
@@ -139,14 +192,13 @@ async function updateComputerSettings(id, name, difficulty) {
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({ 'id': parseInt(id), "Name" : name, "computer_settings" : {"Difficulty" : difficulty} })
+        body: JSON.stringify({ 'id': parseInt(id), "Name": name, "computer_settings": { "Difficulty": difficulty } })
     });
 
     // Verify the password was correct
     if (response.status != 200) {
         const error = await response.json()
-        alert(`Failed to update ${name}'s difficulty; error: ${error}`)
-        console.log(error)
+        alert(`Failed to update ${name}'s difficulty; error: ${error.error}`)
         return
     }
 }
@@ -159,9 +211,8 @@ function loadGames(game) {
     document.getElementById('buttons').style.display = 'flex'
 
     const currentGame = game.replace(/\s+/g, "").toLowerCase();
-    const games = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == currentGame && (item.status === 'Joinable' || item.players.some(p => p.Name === user)))
+    const games = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == currentGame && ((item.status === 'Joinable' && (item.players.length < item.configurations.Game.Players.value)) || item.players.some(p => p.Name === user)))
 
-    gameCounts[currentGame] = games.length;
     document.getElementById(`${currentGame}-count`).textContent = games.length;
 
     activeGames.innerHTML = `<h2>${game} - Available Games</h2>`;
@@ -173,6 +224,7 @@ function loadGames(game) {
     activeText.innerHTML = 'Active Games'
     active.id = 'active'
     active.style.display = "none"
+    active.dataset.gameState = 'Active'
     active.appendChild(activeText)
 
     const paused = document.createElement('div')
@@ -181,6 +233,7 @@ function loadGames(game) {
     pausedText.innerHTML = 'Paused Games'
     paused.id = 'paused'
     paused.style.display = "none"
+    paused.dataset.gameState = 'Paused'
     paused.appendChild(pausedText)
 
     const joinable = document.createElement('div')
@@ -189,14 +242,16 @@ function loadGames(game) {
     joinableText.innerHTML = 'Joinable Games'
     joinable.id = 'joinable'
     joinable.style.display = "none"
+    joinable.dataset.gameState = 'Joinable'
     joinable.appendChild(joinableText)
 
     const creating = document.createElement('div')
     creatingText = document.createElement('h4')
     creatingText.className = 'gameState'
     creatingText.textContent = 'Create Game'
-    creating.id = 'creating'
+    creating.id = `creating${game.replace(/\s+/g, '_').toLowerCase()}`
     creating.style.display = "none"
+    creating.dataset.gameState = 'Creating'
     creating.appendChild(creatingText)
 
     activeGames.appendChild(active)
@@ -224,47 +279,42 @@ function loadGames(game) {
     sortedGames.forEach(g => addGameElement(g.id));
 }
 
-async function requestComputer(id) {
-    const response = await fetch(`${BASE_URL}/lobby/add_computer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          id: parseInt(id),
-        })
-      });
-    
-      if (response.status == 200) {
-        console.log('SUCCESS')
-      }
-      else {
-        console.log('FAILURE')
-      }
-}
+// async function requestComputer(id) {
+//     const response = await fetch(`${BASE_URL}/lobby/add_computer`, {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json"
+//         },
+//         body: JSON.stringify({
+//           id: parseInt(id),
+//         })
+//       });
 
-async function addComputer(element, gameStatus, host) {
+//       if (response.status != 200) {
+//         alert(`Error: Unable to add a computer`)
+//       }
+// }
+
+async function addComputer(element) {
     const container = element.closest('.playersContainer')
     const playerCount = container.children.length - 2
     const totalCount = parseInt(element.closest('.game-details').querySelector(`select[name="Players"]`).value)
 
     if (totalCount >= (playerCount + 1)) {
         const response = await fetch(`${BASE_URL}/lobby/add_computer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          id: parseInt(element.closest('.game-item').id),
-        })
-      });
-    
-      if (response.status == 200) {
-        console.log('SUCCESS')
-      }
-      else {
-        console.log('FAILURE')
-      }
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                id: parseInt(element.closest('.game-item').id),
+            })
+        });
+
+        if (response.status != 200) {
+            const error = await response.json()
+            alert(`Error: Unable to add a computer: ${error.error}`)
+        }
     }
 
     adjustPlayerCount(element)
@@ -321,14 +371,13 @@ async function updateStatus(id, status) {
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({ 'id': parseInt(id), "player" : user, "status" : castValue(status) })
+        body: JSON.stringify({ 'id': parseInt(id), "player": user, "status": castValue(status) })
     });
 
     // Verify the password was correct
     if (response.status != 200) {
         const error = await response.json()
-        alert(`Failed to update ready status; error: ${error}`)
-        console.log(error)
+        alert(`Failed to update ready status; error: ${error.error}`)
         return
     }
 }
@@ -340,15 +389,15 @@ function getPlayers(container) {
     Array.from(players).forEach((element) => {
         const isComputer = !!element?.querySelector('button');
         const difficulty = element?.querySelector('button')?.textContent;
-    
+
         playerObjects.push({
             "Name": element.dataset.name,
             "Type": isComputer ? 'Computer' : 'Human',
-            "IsReady": element?.closest('.playerRow')?.querySelector('input')?.checked 
+            "IsReady": element?.closest('.playerRow')?.querySelector('input')?.checked
                 ?? element?.closest('.playerRowStatic')?.querySelector('input')?.checked,
             ...(isComputer && { "Difficulty": difficulty })
         });
-    }); 
+    });
 
     return playerObjects
 }
@@ -359,14 +408,13 @@ async function reorderPlayers(id, orderedNames) {
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({ 'id': parseInt(id), "user" : user, "players" : orderedNames})
+        body: JSON.stringify({ 'id': parseInt(id), "user": user, "players": orderedNames })
     });
 
     // Verify the password was correct
     if (response.status != 200) {
         const error = await response.json()
-        alert(`Failed to update player order; error: ${error}`)
-        console.log(error)
+        alert(`Failed to update player order; error: ${error.error}`)
         return
     }
 }
@@ -425,7 +473,7 @@ function createplayersElements(players, gameStatus, host, id) {
         const addComputerElement = document.createElement('button')
         addComputerElement.textContent = 'Add Computer'
         addComputerElement.onclick = function () {
-            addComputer(this, gameStatus, host)
+            addComputer(this)
         }
         div.appendChild(addComputerElement)
     }
@@ -519,9 +567,9 @@ function addGameElement(id, shouldPrepend = false) {
     const deleteGameText = (host === user) ? `<span><span class='delete' onclick='deleteGame(this, "${game}")'>🗑️</span></span>` : `<span>️</span>`
     const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<img src="https://assets.dryicons.com/uploads/icon/svg/3534/lock.svg" style="height: 1.25em"></img>` : `<img src="https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg" style = "height: 1.25em"></img>`) : `<span></span>`
     let buttonText = null
-    if (gameStatus === 'Active') { buttonText = `<button id = 'actionButton${id}'>Resume</button>` }
-    else if (gameStatus === 'Paused') { buttonText = (user === host) ? `<button id = 'actionButton${id}'>Resume</button>` : '' }
-    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? `<button id = 'actionButton${id}'>Start</button>` : ((players.some(p => p.Name === user)) ? `<button id = 'actionButton${id}' onclick = "leaveGame(this)">Leave</button>` : `<button id = 'actionButton${id}' onclick = "joinGame(this)">Join</button>`) }
+    if (gameStatus === 'Active') { buttonText = `<button id = 'actionButton${id}' onclick = "resumeGame(${id})">Resume</button>` }
+    else if (gameStatus === 'Paused') { buttonText = (user === host) ? `<button id = 'actionButton${id}' onclick = "startGame(${id})">Start</button>` : `` }
+    else if (gameStatus === 'Joinable') { buttonText = (user === host) ? `<button id = 'actionButton${id}' onclick = "startGame(${id})">Start</button>` : ((players.some(p => p.Name === user)) ? `<button id = 'actionButton${id}' onclick = "leaveGame(this)">Leave</button>` : `<button id = 'actionButton${id}' onclick = "joinGame(this)">Join</button>`) }
     header.innerHTML = `
         ${lockText}
         <span>${gameName}</span>
@@ -538,14 +586,14 @@ function addGameElement(id, shouldPrepend = false) {
     details.classList.add('game-details');
     container.appendChild(details);
 
-    // ============================================= //
-    // Don't add the game details for an active game //
-    // ============================================= //
-    if (gameStatus === 'Active' || gameStatus === 'Paused') {
-        const playersContainer = createplayersElements(players, gameStatus, host, user, id)
-        details.appendChild(playersContainer)
-        return
-    }
+    // // ============================================= //
+    // // Don't add the game details for an active game //
+    // // ============================================= //
+    // if (gameStatus === 'Active' || gameStatus === 'Paused') {
+    //     const playersContainer = createplayersElements(players, gameStatus, host, user, id)
+    //     details.appendChild(playersContainer)
+    //     return
+    // }
 
     if (activeConfigs) {
         // for each configuration setting category (first level of the json object) (Game, Game Rules, Timing Settings, etc.)
@@ -647,29 +695,29 @@ function addListener(element) {
 
 async function updateConfig(section, option, newValue, gameId) {
     const configPatch = {
-      [section]: {
-        [option]: {
-          value: newValue
+        [section]: {
+            [option]: {
+                value: newValue
+            }
         }
-      }
     };
-  
+
     const response = await fetch(`${BASE_URL}/lobby/update_config`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        id: gameId,
-        config_patch: configPatch
-      })
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            id: gameId,
+            config_patch: configPatch
+        })
     });
-  
+
     if (response.status !== 200) {
-      const error = await response.json();
-      alert(`Failed to update config: ${error}`);
+        const error = await response.json();
+        alert(`Failed to update config: ${error.error}`);
     }
-  }
+}
 
 function adjustPlayerCount(element) {
     const host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == element.closest('.game-item').id)[0]['host']
@@ -685,6 +733,11 @@ function adjustPlayerCount(element) {
     else { totalCount = parseInt(element.closest('.game-item').querySelector(`select[name="Players"]`).value) }
 
     gameHeader.textContent = `${playerCount} / ${totalCount} playe${(totalCount > 1) ? 'rs' : 'r'}`
+
+    // Hide the game if it's full and you are NOT included
+    if (playerCount == totalCount && !getPlayers(gameHeader.closest('.game-item').querySelector('.playersContainer')).includes(user)) {
+        gameHeader.closest('.game-item').style.display = "none"
+    }
 
 }
 
@@ -711,9 +764,9 @@ function castValue(value) {
 
 async function createGame() {
     const header = document.getElementById('activeGames').querySelector('h2')
-    const game = header.textContent
+    const game = header.textContent.split(' - ')[0]
 
-    const settings = document.getElementById('creating').querySelector('.game-details')
+    const settings = document.getElementById(`creating${game.replace(/\s+/g, '_').toLowerCase()}`).querySelector('.game-details')
     const sections = settings.querySelectorAll('h4')
     const sectionsData = settings.querySelectorAll('.setting-row')
 
@@ -754,7 +807,7 @@ async function createGame() {
         document.getElementById('createButton').onclick = () => { createGameTemplate() }
 
         // Update the UI to show the active games
-        document.getElementById('creating').style.display = "none"
+        document.getElementById(`creating${game.replace(/\s+/g, '_').toLowerCase()}`).style.display = "none"
 
         const active = document.getElementById('active')
         if (active.children.length > 1) { active.style.display = "block" }
@@ -765,8 +818,48 @@ async function createGame() {
     }
     else {
         const error = await response.json()
-        alert(`Failed to create the game: ${error}`)
+        alert(`Failed to create the game: ${error.error}`)
     }
+}
+
+async function resumeGame(id) {
+    response = await fetch(`${BASE_URL}/lobby/resume_game`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 'id': parseInt(id) })
+    });
+
+    // Verify the password was correct
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to start game; error: ${error.error}`)
+        return
+    }
+
+    const data = await response.json()
+    window.location.href = data.redirect_url
+}
+
+async function startGame(id) {
+    response = await fetch(`${BASE_URL}/lobby/start_game`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 'id': parseInt(id), "user": user })
+    });
+
+    // Verify the password was correct
+    if (response.status != 200) {
+        const error = await response.json()
+        alert(`Failed to start game; error: ${error.error}`)
+        return
+    }
+
+    const data = await response.json()
+    window.location.href = data.redirect_url
 }
 
 /**
@@ -808,7 +901,7 @@ async function joinGame(element) {
         }
         else {
             const error = await response.json()
-            alert(`Failed to check the password; error: ${error}`)
+            alert(`Failed to check the password; error: ${error.error}`)
             return
         }
     }
@@ -825,7 +918,7 @@ async function joinGame(element) {
     // Verify that the request was successful
     if (response.status != 200) {
         const error = await response.json()
-        alert(`Failed to join ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        alert(`Failed to join ${element.closest('.game-header').querySelector('span').textContent}: ${error.error}`)
         return
     }
 }
@@ -848,10 +941,10 @@ function joinGameUIUpdate(element, playerObject) {
         const cloned = span.cloneNode(true); // Create a deep clone
         const button = cloned.querySelector('button'); // Find the button
         if (button) button.remove(); // Remove the button from the clone
-        const playerName = cloned.textContent.trim().replace(' (Host)', '').trim(); 
+        const playerName = cloned.textContent.trim().replace(' (Host)', '').trim();
         return playerName
-      });
-    
+    });
+
     // Make sure the player isn't already there
     let div = undefined
     if (!players.includes(playerObject.Name)) {
@@ -864,8 +957,10 @@ function joinGameUIUpdate(element, playerObject) {
     if (div != null) { adjustPlayerCount(div) }
 
     // Change the 'Join' button to a 'Leave' button
-    element.textContent = 'Leave'
-    element.onclick = function () { leaveGame(this) }
+    if (playerObject.Name === user) {
+        element.textContent = 'Leave'
+        element.onclick = function () { leaveGame(this) }
+    }
 
     // Change the 'lock' image to the 'unlock' image
     const lock = element.closest('.game-item').querySelector('img')
@@ -882,24 +977,24 @@ async function leaveGame(element) {
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({'id' : parseInt(id), 'player' : user})
+        body: JSON.stringify({ 'id': parseInt(id), 'player': user })
     });
 
     // Verify that the request was successful
     if (response.status != 200) {
         const error = await response.json()
-        alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error.error}`)
         return
     }
 }
 
 function leaveGameUIUpdate(element, player) {
     const el = Array.from(element.closest('.game-item').querySelectorAll('span'))
-    .find(el =>
-      Array.from(el.childNodes).some(node =>
-        node.nodeType === Node.TEXT_NODE && node.textContent.trim() === player
-      )
-    );
+        .find(el =>
+            Array.from(el.childNodes).some(node =>
+                node.nodeType === Node.TEXT_NODE && node.textContent.trim() === player
+            )
+        );
 
     // Remove the player
     let playerRow = el.closest('.playerRow')
@@ -910,8 +1005,10 @@ function leaveGameUIUpdate(element, player) {
     adjustPlayerCount(element)
 
     // Adjust the button
-    element.textContent = 'Join'
-    element.onclick = function () { joinGame(this) }
+    if (player === user) {
+        element.textContent = 'Join'
+        element.onclick = function () { joinGame(this) }
+    }
 
     // Change the 'lock' image to the 'unlock' image
     const lock = element.closest('.game-item').querySelector('img')
@@ -937,7 +1034,7 @@ async function deleteGame(element, game) {
 
     if (response.status != 200) {
         const error = await response.json()
-        alert(`Failed to Remove game: ${error}`)
+        alert(`Failed to Remove game: ${error.error}`)
         return
     }
     // deleteGameUpdateUI(element, game)
@@ -952,8 +1049,9 @@ function deleteGameUpdateUI(element, game) {
     element.closest('.game-item').remove()
 
     // Adjust the playable game's count
-    gameCounts[game] = Math.max(0, gameCounts[game] - 1);
-    document.getElementById(`${game.replace(/\s+/g, '_').toLowerCase()}-count`).textContent = gameCounts[game];
+    const gameList = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == game && (item.status === 'Joinable' || item.players.some(p => p.Name === user)))
+    const gameCounter = document.getElementById(`${game.replace(/\s+/g, '').toLowerCase()}-count`)
+    gameCounter.textContent = gameList.length;
 
     // Hide the corresponding game state if there are no longer any games
     if (gameStateElement.children.length === 1) {
@@ -1004,7 +1102,7 @@ function resetGameList(games) {
         const li = document.createElement("li");
         const gameId = game.game.replace(/\s+/g, "").toLowerCase()
         li.innerHTML = `<span>${game.game}</span>`
-        const currentCount = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == gameId && (item.status === 'Joinable' || item.players.some(p => p.Name === user))).length
+        const currentCount = JSON.parse(localStorage.getItem('activeGames')).filter(item => item.game.replace(/\s+/g, "").toLowerCase() == gameId && ((item.status === 'Joinable' && (item.players.length < item.configurations.Game.Players.value)) || item.players.some(p => p.Name === user))).length
 
         // Add the game count to the li-element
         let span = document.createElement("span");
@@ -1044,10 +1142,14 @@ function orderObject(obj, key) {
 }
 
 document.addEventListener('click', (event) => {
+
     // If you clicked inside of the game-details, do nothing
     if (event.target.closest('.game-details')
         || event.target.closest('.delete')
         || event.target.closest('button')) { return; }
+
+    // Reset the create button
+    document.getElementById('createButton').onclick = () => { createGameTemplate() }
 
     let details = null
     let state = null
@@ -1065,7 +1167,6 @@ document.addEventListener('click', (event) => {
 })
 
 async function removePlayer(element, name) {
-    console.log(element)
     // Get the game id
     const id = element.closest('.game-item').id
 
@@ -1075,13 +1176,13 @@ async function removePlayer(element, name) {
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({'id' : parseInt(id), 'player' : name})
+        body: JSON.stringify({ 'id': parseInt(id), 'player': name })
     });
 
     // Verify that the request was successful
     if (response.status != 200) {
         const error = await response.json()
-        alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error}`)
+        alert(`Failed to leave ${element.closest('.game-header').querySelector('span').textContent}: ${error.error}`)
         return
     }
 }
@@ -1127,7 +1228,6 @@ function getAcceptableValues(game, section, option) {
  * @returns {void} - This builds all necessary elements and adds them directly to the DOM
  */
 function createGameTemplate() {
-
     document.getElementById('createButton').onclick = () => { createGame() }
 
     // Bring in the general configurations for descriptions
@@ -1141,7 +1241,7 @@ function createGameTemplate() {
     // ============================================================ //
 
     // Add the container to the Game Status container
-    const container = document.getElementById('creating')
+    const container = document.getElementById(`creating${game.replace(/\s+/g, '_').toLowerCase()}`)
     container.style.display = "block"
 
     // =============================== //
@@ -1153,7 +1253,7 @@ function createGameTemplate() {
     container.appendChild(details);
 
     // Display the creating container
-    const element = document.getElementById('creating')
+    const element = document.getElementById(`creating${game.replace(/\s+/g, '_').toLowerCase()}`)
     element.style.display = "block"
     element.querySelector('.game-details').style.display = "block"
     document.getElementById('joinable').style.display = "none"
@@ -1192,6 +1292,7 @@ function createGameTemplate() {
 }
 
 function createSetting(game, gameBaseConfigs, section, optionName, optionData, mainSettings, valueKey = 'default') {
+    const gameState = mainSettings.closest('div[data-game-state]').dataset.gameState
     // Get / set the Host
     let host = undefined
     try { host = JSON.parse(localStorage.getItem('activeGames')).filter(item => item['id'] == mainSettings.closest('.game-item').id)[0]['host'] }
@@ -1229,9 +1330,11 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
     const isAlterable = isOptions || isRange
 
     // Create the select element
-    const select = (user !== host) ? document.createElement('p') : ((isAlterable) ? document.createElement('select') : document.createElement('input'))
+    // const select = (user !== host) ? document.createElement('p') : ((isAlterable) ? document.createElement('select') : document.createElement('input'))
+    const select = (user !== host || (gameState === 'Active' || gameState === 'Paused')) ? document.createElement('p') : ((isAlterable) ? document.createElement('select') : document.createElement('input'))
 
-    if (isAlterable && user === host) {
+    // if (isAlterable && (user === host) {
+    if (isAlterable && (user === host && (gameState === 'Joinable' || gameState === 'Creating'))) {
         select.name = optionName;
         const acceptableOptions = getAcceptableValues(game, section, optionName)
         acceptableOptions.forEach(opt => {
@@ -1264,19 +1367,19 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
             dependentForKeys.forEach((dependentFor) => {
                 if (gameBaseConfigs[section][dependentFor].dependentOn[event.target.name] === targetValue) {
                     if (!mainSettings.querySelector(`select[name="${dependentFor}"]`)) {
-                    const [l, s, i] = createSetting(game, gameBaseConfigs, section, dependentFor, gameBaseConfigs[section][dependentFor], mainSettings, valueKey = 'default')
-                    mainSettings.insertBefore(i, event.target.nextElementSibling.nextElementSibling)
-                    mainSettings.insertBefore(s, event.target.nextElementSibling.nextElementSibling)
-                    mainSettings.insertBefore(l, event.target.nextElementSibling.nextElementSibling)
-                    addListener(s)
+                        const [l, s, i] = createSetting(game, gameBaseConfigs, section, dependentFor, gameBaseConfigs[section][dependentFor], mainSettings, valueKey = 'default')
+                        mainSettings.insertBefore(i, event.target.nextElementSibling.nextElementSibling)
+                        mainSettings.insertBefore(s, event.target.nextElementSibling.nextElementSibling)
+                        mainSettings.insertBefore(l, event.target.nextElementSibling.nextElementSibling)
+                        addListener(s)
                     }
                 }
                 else {
                     if (mainSettings.querySelector(`select[name="${dependentFor}"]`)) {
-                    const dependentElement = Array.from(event.target.closest('.setting-row').querySelectorAll('p')).find(el => el.textContent.replace(/\s+/g, "_").trim() === dependentFor)
-                    dependentElement.nextElementSibling.remove()
-                    dependentElement.nextElementSibling.remove()
-                    dependentElement.remove()
+                        const dependentElement = Array.from(event.target.closest('.setting-row').querySelectorAll('p')).find(el => el.textContent.replace(/\s+/g, "_").trim() === dependentFor)
+                        dependentElement.nextElementSibling.remove()
+                        dependentElement.nextElementSibling.remove()
+                        dependentElement.remove()
                     }
                 }
             })

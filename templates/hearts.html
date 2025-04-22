@@ -14,6 +14,7 @@
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script> <!-- Ensure the socket io library is installed -->
 	<script src = "{{ url_for('static', filename = 'scripts/general.js')}}" defer></script>
 	<script src = "{{ url_for('static', filename = 'scripts/hearts.js')}}" defer></script>
+	<script>window.gameId = "{{ game_id }}";</script>
 </head>
 <body>
 	<div class="game-container">
