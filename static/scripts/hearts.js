@@ -1,3 +1,5 @@
+const game_id = window.gameId;
+console.log(game_id)
 createHeader()
 
 document.addEventListener("DOMContentLoaded", function () {

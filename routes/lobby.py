@@ -344,3 +344,82 @@ def reorder_players():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+@lobby_bp.route('/start_game/', methods=['POST'])
+def start_game():
+    data = request.get_json()
+    game_id = data.get("id")
+    user = data.get("user")
+
+    if not session['user'] or session['user'] != user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    # Fetch only host and players fields
+    response = supabase_client \
+        .table('ActiveGames') \
+        .select('game, host, players') \
+        .eq('id', game_id) \
+        .single() \
+        .execute()
+
+    if len(response.data) == 0:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    game_data = response.data
+    host = game_data.get('host')
+    players = game_data.get('players', [])
+    game = game_data.get('game')
+
+    # Check host
+    if host != user:
+        return jsonify({'error': 'Only the host can start the game'}), 403
+    
+    # Check if all players are ready
+    all_ready = all(player.get('IsReady') for player in players)
+    if not all_ready:
+        return jsonify({'error': 'Not all players are ready'}), 400
+    
+    # ✅ Mark the game as "Active"
+    update_response = supabase_client \
+        .table('ActiveGames') \
+        .update({'status': 'Active'}) \
+        .eq('id', game_id) \
+        .execute()
+    
+    # ✅ Redirect to the correct game page
+    return jsonify({'redirect_url': f'/{game}/{game_id}'})
+
+@lobby_bp.route('/resume_game/', methods=['POST'])
+def resume_game():
+    data = request.get_json()
+    game_id = data.get("id")
+
+    if not session['user']:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    # Fetch only host and players fields
+    response = supabase_client \
+        .table('ActiveGames') \
+        .select('game, players') \
+        .eq('id', game_id) \
+        .single() \
+        .execute()
+    
+    if len(response.data) == 0:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    game_data = response.data
+    players = game_data.get('players', [])
+    game = game_data.get('game')
+
+    # Check that the player is in the game
+    if (len([x['Name'] for x in players if x['Name'] == session['user']]) == 0):
+        return jsonify({'error': "You can only enter a game you're in"}), 403
+    
+    # Check if all players are ready
+    all_ready = all(player.get('IsReady') for player in players)
+    if not all_ready:
+        return jsonify({'error': 'Not all players are ready'}), 400
+    
+    # ✅ Redirect to the correct game page
+    return jsonify({'redirect_url': f'/{game}/{game_id}'})
