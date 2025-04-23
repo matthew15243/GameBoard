@@ -105,9 +105,9 @@ socket.on('game_update', (data) => {
                     Object.keys(removals.players).forEach((obj) => {
                         const element = document.getElementById(`actionButton${id}`)
                         // If the element exists, remove the player
-                        if (element) { leaveGameUIUpdate(document.getElementById(`actionButton${id}`), removals.players[obj].Name) }
+                        if (element) { leaveGameUIUpdate(document.getElementById(`actionButton${id}`), removals.players[obj].Name); }
                         // Otherwise, add the element back in as a joinable game
-                        else { addGameElement(id) }
+                        else { addGameElement(id); }
                     })
                 }
                 if (additions?.players) {
@@ -533,25 +533,23 @@ function addGameElement(id, shouldPrepend = false) {
     container.id = id
 
     // Add the container to the Game Status container
+    let element = null
     if (gameStatus === 'Joinable') {
-        const element = document.getElementById('joinable')
-        element.style.display = "block"
+        element = document.getElementById('joinable')
         if (!shouldPrepend) { element.appendChild(container) }
         else {
             const h4Element = element.querySelector('h4')
             element.insertBefore(container, h4Element.nextElementSibling)
         }
     } else if (gameStatus === 'Active') {
-        const element = document.getElementById('active')
-        element.style.display = "block"
+        element = document.getElementById('active')
         if (!shouldPrepend) { element.appendChild(container) }
         else {
             const h4Element = element.querySelector('h4')
             element.insertBefore(container, h4Element.nextElementSibling)
         }
     } else if (gameStatus === 'Paused') {
-        const element = document.getElementById('paused')
-        element.style.display = "block"
+        element = document.getElementById('paused')
         if (!shouldPrepend) { element.appendChild(container) }
         else {
             const h4Element = element.querySelector('h4')
@@ -559,12 +557,18 @@ function addGameElement(id, shouldPrepend = false) {
         }
     }
 
+    // Only display the game type divs IF the user is NOT in the middle of creating a game
+    const createElement = document?.getElementById(`creating${game}`)
+    if (createElement.style.display === "none" || createElement == null) {
+        element.style.display = "block"
+    }
+
     // =========================================== //
     // Create the Header (Hearts - 5 player(s) 🗑) //
     // =========================================== //
     const header = document.createElement('div');
     header.classList.add('game-header');
-    const deleteGameText = (host === user) ? `<span><span class='delete' onclick='deleteGame(this, "${game}")'>🗑️</span></span>` : `<span>️</span>`
+    const deleteGameText = (host === user) ? `<span><span class='delete' onclick='deleteGame(this)'>🗑️</span></span>` : `<span>️</span>`
     const lockText = (gameStatus === "Joinable" && isLocked) ? ((!players.some(p => p.Name === user)) ? `<img src="https://assets.dryicons.com/uploads/icon/svg/3534/lock.svg" style="height: 1.25em"></img>` : `<img src="https://assets.dryicons.com/uploads/icon/svg/3769/unlock.svg" style = "height: 1.25em"></img>`) : `<span></span>`
     let buttonText = null
     if (gameStatus === 'Active') { buttonText = `<button id = 'actionButton${id}' onclick = "resumeGame(${id})">Resume</button>` }
@@ -572,7 +576,7 @@ function addGameElement(id, shouldPrepend = false) {
     else if (gameStatus === 'Joinable') { buttonText = (user === host) ? `<button id = 'actionButton${id}' onclick = "startGame(${id})">Start</button>` : ((players.some(p => p.Name === user)) ? `<button id = 'actionButton${id}' onclick = "leaveGame(this)">Leave</button>` : `<button id = 'actionButton${id}' onclick = "joinGame(this)">Join</button>`) }
     header.innerHTML = `
         ${lockText}
-        <span>${gameName}</span>
+        <span data-IsGameName="true">${gameName}</span>
         <span class="player-count">${players.length} / ${maxPlayers} playe${(maxPlayers > 1) ? 'rs' : 'r'}</span>
         ${deleteGameText}
         ${buttonText}
@@ -688,7 +692,6 @@ function addListener(element) {
         const option = event.target.name
         const section = event.target.closest('.setting-row').parentElement.previousElementSibling.textContent.replace(/\s+/g, '_')
         const trueValue = JSON.parse(localStorage.getItem("activeGames") || "[]").filter(item => item.id === id)[0].configurations[section][option].value
-        // if (trueValue !== value) { queueConfigChange(section, option, value, id) }
         if (trueValue !== value) { updateConfig(section, option, value, id) }
     })
 }
@@ -735,8 +738,11 @@ function adjustPlayerCount(element) {
     gameHeader.textContent = `${playerCount} / ${totalCount} playe${(totalCount > 1) ? 'rs' : 'r'}`
 
     // Hide the game if it's full and you are NOT included
-    if (playerCount == totalCount && !getPlayers(gameHeader.closest('.game-item').querySelector('.playersContainer')).includes(user)) {
+    if (playerCount == totalCount && !getPlayers(gameHeader.closest('.game-item').querySelector('.playersContainer')).map((obj) => obj.Name).includes(user)) {
         gameHeader.closest('.game-item').style.display = "none"
+    }
+    else {
+        gameHeader.closest('.game-item').style.display = "flex"
     }
 
 }
@@ -763,6 +769,10 @@ function castValue(value) {
 }
 
 async function createGame() {
+    // Swap the flexible button
+    document.getElementById('flexibleButton').textContent = 'Rules'
+    document.getElementById('flexibleButton').onclick = () => { viewRules() }
+
     const header = document.getElementById('activeGames').querySelector('h2')
     const game = header.textContent.split(' - ')[0]
 
@@ -776,7 +786,7 @@ async function createGame() {
         let datum = {}
         Array.from(sectionsData[i].querySelectorAll('input, select')).forEach(child => {
             if (child.name === 'Name') {
-                datum[child.name] = { "value": (child.value !== "") ? child.value.replace("'s Game", "").replace("'s", "") + "'s Game" : `${user}'s Game` }
+                datum[child.name] = { "value": (child.value !== "") ? child.value : `${user}'s Game` }
             }
             else if (child.name === 'Password') { data['password'] = (child.value === "") ? null : castValue(child.value) }
             else {
@@ -1017,9 +1027,9 @@ function leaveGameUIUpdate(element, player) {
 
 function viewRules() { alert("View Rules Clicked"); }
 
-async function deleteGame(element, game) {
-    const gameName = Array.from(element.closest('.game-header').querySelectorAll('span')).find(el => el.textContent.trim().toLowerCase().includes('game'))
-    const confirmation = confirm(`You are about to delete "${gameName.textContent}". This action CANNOT be undone.`)
+async function deleteGame(element) {
+    const gameName = element.closest('.game-header').querySelector('span[data-IsGameName]').textContent
+    const confirmation = confirm(`You are about to delete "${gameName}". This action CANNOT be undone.`)
     if (!confirmation) { return }
 
     const id = element.closest('.game-item').id
@@ -1037,7 +1047,6 @@ async function deleteGame(element, game) {
         alert(`Failed to Remove game: ${error.error}`)
         return
     }
-    // deleteGameUpdateUI(element, game)
 
 }
 
@@ -1142,6 +1151,9 @@ function orderObject(obj, key) {
 }
 
 document.addEventListener('click', (event) => {
+    // Remove other tooltips
+    document.querySelectorAll('.tooltip-box').forEach(tip => tip.remove());
+  
 
     // If you clicked inside of the game-details, do nothing
     if (event.target.closest('.game-details')
@@ -1149,7 +1161,7 @@ document.addEventListener('click', (event) => {
         || event.target.closest('button')) { return; }
 
     // Reset the create button
-    document.getElementById('createButton').onclick = () => { createGameTemplate() }
+    // document.getElementById('createButton').onclick = () => { createGameTemplate() }
 
     let details = null
     let state = null
@@ -1160,7 +1172,8 @@ document.addEventListener('click', (event) => {
         state = details.style.display === 'none' || !details.style.display
     }
 
-    closeGames(['creating'])
+    const createElementIds = Array.from(document.querySelectorAll(`div[data-game-state="Creating"]`)).map(el => el.id)
+    closeGames(createElementIds)
     if (details) { details.style.display = state ? 'block' : 'none'; }
 
 
@@ -1221,6 +1234,28 @@ function getAcceptableValues(game, section, option) {
     return values
 }
 
+function cancelCreateGame() {
+    // Swap the flexible button
+    document.getElementById('flexibleButton').textContent = 'Rules'
+    document.getElementById('flexibleButton').onclick = () => { viewRules() }
+
+    //Reset the page
+    const header = document.getElementById('activeGames').querySelector('h2')
+    const game = header.textContent.split(' - ')[0]
+    header.textContent = `${game} - Available Games`
+    document.getElementById('createButton').onclick = () => { createGameTemplate() }
+
+    // Update the UI to show the active games
+    document.getElementById(`creating${game.replace(/\s+/g, '_').toLowerCase()}`).style.display = "none"
+
+    const active = document.getElementById('active')
+    if (active.children.length > 1) { active.style.display = "block" }
+    const paused = document.getElementById('paused')
+    if (paused.children.length > 1) { paused.style.display = "block" }
+    const joinable = document.getElementById('joinable')
+    if (joinable.children.length > 1) { joinable.style.display = "block" }
+}
+
 /**
  * This will add all information for an Active, Paused, or Joinable game directly to the DOM
  *
@@ -1229,6 +1264,8 @@ function getAcceptableValues(game, section, option) {
  */
 function createGameTemplate() {
     document.getElementById('createButton').onclick = () => { createGame() }
+    document.getElementById('flexibleButton').textContent = 'Cancel'
+    document.getElementById('flexibleButton').onclick = () => { cancelCreateGame() }
 
     // Bring in the general configurations for descriptions
     const header = document.getElementById('activeGames').querySelector('h2')
@@ -1350,14 +1387,49 @@ function createSetting(game, gameBaseConfigs, section, optionName, optionData, m
         if (optionName === "Name") { select.placeholder = "required" }
         else if (optionName === "Password") { select.placeholder = "optional" }
         else {
-            select.textContent = optionData[valueKey]
+            select.textContent = baseData?.units !== undefined ? formatDuration(optionData[valueKey]) : optionData[valueKey]
         }
     }
 
     // Add the description information
     const info = document.createElement('p')
     if (section in gameBaseConfigs && optionName in gameBaseConfigs[section] && 'description' in gameBaseConfigs[section][optionName]) {
-        info.innerHTML = `<p title = "${gameBaseConfigs[section][optionName]['description']}" style = "cursor: help; margin-left: 0.25em;">ℹ️</p>`
+        info.classList.add('info-icon')
+        info.textContent = 'ℹ️'
+        info.dataset.tooltip = `${gameBaseConfigs[section][optionName]['description']}`
+        // info.innerHTML = `<p class = 'info-icon' data-tooltip = "${gameBaseConfigs[section][optionName]['description']}" style = "cursor: help; margin-left: 0.25em;">ℹ️</p>`
+        info.addEventListener('click', (e) => {
+        e.stopPropagation();
+
+        // Remove other tooltips
+        document.querySelectorAll('.tooltip-box').forEach(tip => tip.remove());
+  
+        // Create tooltip
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip-box show';
+        tooltip.innerText = info.dataset.tooltip;
+        info.appendChild(tooltip);
+
+        // Wait a tick to calculate position
+        setTimeout(() => {
+            const iconRect = info.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const screenPadding = 16; // ≈ 1em
+            const spaceRight = window.innerWidth - iconRect.left;
+    
+            // Reset default styles
+            tooltip.style.left = '0';
+            tooltip.style.right = 'auto';
+    
+            // If there's not enough space to the right, align to the right edge of the icon
+            // alert(`Right: ${spaceRight}, icon: ${iconRect}, tooltip: ${tooltipRect}`)
+            if (spaceRight < tooltipRect.width + screenPadding) {
+              tooltip.style.left = 'auto';
+              tooltip.style.right = '0';
+            }
+          }, 0);
+        
+      });
     }
 
     if (baseData?.dependentFor) {

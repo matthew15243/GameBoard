@@ -75,18 +75,21 @@ def supabase_webhook():
     data = request.json
     table = data.get('table')
     record = data.get('record') or {}  # Supabase sends the new row data as 'record'
+    old_record = data.get('old_record') or {}  # Supabase sends the new row data as 'record'
 
     if table == "ActiveGames":
         game_status = record.get("status")
+        old_status = old_record.get("status")
         players = record.get("players", [])
+        old_players = old_record.get("players", [])
 
         # Preprocess player names for quick lookup
-        player_names = {p.get("Name") for p in players if "Name" in p}
+        player_names = {p.get("Name") for p in players + old_players if "Name" in p}
 
         # Go through connected sockets and emit selectively
         for sid, user in connected_users.items():
             # If status is Joinable OR user is in the players list, emit update
-            if game_status == "Joinable" or user in player_names:
+            if game_status == "Joinable" or old_status == "Joinable" or user in player_names:
                 socketio.emit('game_update', data, to=sid)
     else:
         print("Unhandled table update")

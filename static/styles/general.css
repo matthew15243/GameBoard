@@ -53,6 +53,7 @@ button {
 	cursor: pointer;
 	white-space: nowrap;
 	justify-content: space-between;
+	display: flex;
 }
 
 .sidebar li span:first-child {
