@@ -29,15 +29,21 @@ def signup():
         # Create user in Supabase auth
         response = supabase_client.auth.sign_up({"email": email, "password": password, 'display_name' : username})
         user_id = response.user.id  # Get user ID
+        print(f"response' : {response}")
+        print(f"user_id : {user_id}")
+        print(f"Username: {username}")
 
         # Store username in profiles table
         supabase_client.table("Profiles").insert({
             "id": user_id,
-            "username": username
+            "username": username,
+            "friends" : None
         }).execute()
+        print('Success')
 
-        return jsonify({"message": "User created successfully!"}), 201
+        return jsonify({"message": "User created successfully! Please Validate your email to log in."}), 201
     except Exception as e:
+        print(f"Error: {e}")
         return jsonify({"error": str(e)}), 400
 
 @auth_bp.route('/login', methods=['POST'])
