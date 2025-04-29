@@ -43,29 +43,6 @@ def handle_disconnect():
     connected_users.pop(request.sid, None)
 
 # # Web Hooks
-# @app.route('/supabase-webhook', methods=['POST'])
-# def supabase_webhook():
-# 	token = request.headers.get("Authorization")
-# 	if (token != f"Bearer {os.getenv("FLASK_KEY")}"):
-# 		print('fail')
-# 		return jsonify({"error": "Unauthorized"}), 403
-	
-# 	data = request.json  # Get webhook data
-# 	table = data.get('table')  # Supabase includes the table name
-
-# 	# print(f"Received update from {table}: {data}")
-
-# 	if table == "ActiveGames":
-# 		socketio.emit('game_update', data)  # Emit event for ActiveGames
-#     # elif table == "Players":
-#         # socketio.emit('player_update', data)  # Emit event for Players table
-#     # elif table == "ChatMessages":
-#         # socketio.emit('chat_update', data)  # Emit event for chat messages
-# 	else:
-# 		print("Unhandled table update")
-
-# 	return jsonify({"message": "Webhook received"}), 200
-
 @app.route('/supabase-webhook', methods=['POST'])
 def supabase_webhook():
     token = request.headers.get("Authorization")
