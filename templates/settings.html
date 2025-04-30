@@ -1,0 +1,16 @@
+{% extends 'profile.html' %}
+{% block profileScripts %} 
+<script src = "{{ url_for('static', filename = 'scripts/settings.js')}}" defer></script>
+{% endblock %}
+
+{% block selectionContent %} 
+
+<ul id="settings-list">
+    <li id="li-change-pic">Add/Change Picture</li>
+    <li id="li-change-username">Change Username</li>
+    <li id="li-change-password">Change Password</li>
+    <li id="li-change-email">Change Email</li>
+    <li id="li-change-deck">Change Card Decks</li>
+</ul>
+
+{% endblock %}

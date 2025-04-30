@@ -43,13 +43,24 @@ body {
     background: #ddd;
 }
 
-.main {
+#main {
     flex: 2;
     display: flex;
     flex-direction: column;
     height: max-content;
     max-height: 100%;
+    list-style: none;
+    cursor:pointer;
 }
+
+
+
+#profile-content li{
+    list-style: none;
+    padding: 0.25em;
+    padding-left: 1em;
+}
+
 
 .active-games {
     flex: 1;

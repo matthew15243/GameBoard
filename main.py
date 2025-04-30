@@ -86,10 +86,10 @@ def playHearts():
 def settings():
 	return render_template('profile.html')
 
-@app.route('/profile/friends')
-@login_required_with_redirect
-def settings():
-	return render_template('friends.html')
+# @app.route('/profile/friends')
+# @login_required_with_redirect
+# def settings():
+# 	return render_template('friends.html')
 
 if __name__ == ('__main__'):
 	# socketio.run(app, host = '127.0.0.1', port = '8080', debug = True)

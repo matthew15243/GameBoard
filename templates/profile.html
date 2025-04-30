@@ -10,6 +10,8 @@
     <script src = "https://cdn.socket.io/4.0.0/socket.io.min.js" defer></script>
 	<script src = "{{ url_for('static', filename = 'scripts/general.js')}}" defer></script>
 	<script src = "{{ url_for('static', filename = 'scripts/profile.js')}}" defer></script>
+    {% block profileScripts %} {% endblock %}    
+
 </head>
 <body>
     <div id="sidebar">
@@ -19,21 +21,15 @@
         </ul>
         <button onclick="logout()">log out</button>
     </div>
-    
-    {% block testTemplateThing %}{% endblock %}
 
-    <div class="main">
-        <!-- <div class="active-games" id="header-bar">Settings</div> -->
+    <div id="main">
+        
+        
         <div class="active-games" id="header-bar">Settings</div>
         
-        <div id="settings-content">
-            <ul id="settings-list">
-                <li>Change Username</li>
-                <li>Change Password</li>
-                <li>Change Email</li>
-                <li>Change Card Decks</li>
-                <li></li>
-            </ul>
+        <div id="profile-content">
+            {% block selectionContent %} {% endblock %}
+ 
 
         </div>
 
