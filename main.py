@@ -30,31 +30,50 @@ app.register_blueprint(general_bp, url_prefix='/general') # Get the general func
 app.register_blueprint(lobby_bp, url_prefix='/lobby') # Get the general functions route
 app.register_blueprint(profile_bp, url_prefix='/profile') # Get the profile functions route
 
-# Web Hooks
+# Connected Clients
+connected_users = {}  # socket_id -> user_email
+
+@socketio.on('connect')
+def handle_connect():
+    user = session.get('user')
+    if user:
+        # connected_users[request.sid] = user['email']
+        connected_users[request.sid] = user
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    connected_users.pop(request.sid, None)
+
+# # Web Hooks
 @app.route('/supabase-webhook', methods=['POST'])
 def supabase_webhook():
-	token = request.headers.get("Authorization")
-	print(token)
-	if (token != f"Bearer {os.getenv("FLASK_KEY")}"):
-		print('fail')
-		return jsonify({"error": "Unauthorized"}), 403
-	
-	print('success')
-	data = request.json  # Get webhook data
-	table = data.get('table')  # Supabase includes the table name
+    token = request.headers.get("Authorization")
+    if token != f"Bearer {os.getenv('FLASK_KEY')}":
+        return jsonify({"error": "Unauthorized"}), 403
 
-	print(f"Received update from {table}: {data}")
+    data = request.json
+    table = data.get('table')
+    record = data.get('record') or {}  # Supabase sends the new row data as 'record'
+    old_record = data.get('old_record') or {}  # Supabase sends the new row data as 'record'
 
-	if table == "ActiveGames":
-		socketio.emit('game_update', data)  # Emit event for ActiveGames
-    # elif table == "Players":
-        # socketio.emit('player_update', data)  # Emit event for Players table
-    # elif table == "ChatMessages":
-        # socketio.emit('chat_update', data)  # Emit event for chat messages
-	else:
-		print("Unhandled table update")
+    if table == "ActiveGames":
+        game_status = record.get("status")
+        old_status = old_record.get("status")
+        players = record.get("players", [])
+        old_players = old_record.get("players", [])
 
-	return jsonify({"message": "Webhook received"}), 200
+        # Preprocess player names for quick lookup
+        player_names = {p.get("Name") for p in players + old_players if "Name" in p}
+
+        # Go through connected sockets and emit selectively
+        for sid, user in connected_users.items():
+            # If status is Joinable OR user is in the players list, emit update
+            if game_status == "Joinable" or old_status == "Joinable" or user in player_names:
+                socketio.emit('game_update', data, to=sid)
+    else:
+        print("Unhandled table update")
+
+    return jsonify({"message": "Webhook received"}), 200
 
 @app.route("/reset-password/", methods=["GET"])
 def reset_password_page():
@@ -71,15 +90,20 @@ def login():
 def lobby():
 	return render_template('lobby.html')
 
+@app.route('/headertest/')
+@login_required_with_redirect
+def headertest():
+	return render_template('headertest.html')
+
 @app.route('/')
 @app.route('/home/')
 def home():
 	return redirect(url_for('login'))
 
-@app.route('/hearts/')
+@app.route('/Hearts/<int:game_id>')
 @login_required_with_redirect
-def playHearts():
-	return render_template('hearts.html')
+def playHearts(game_id):
+	return render_template('Hearts.html', game_id = game_id)
 
 @app.route('/profile/')
 @login_required_with_redirect

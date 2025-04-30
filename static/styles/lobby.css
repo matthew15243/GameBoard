@@ -7,8 +7,8 @@
 
 body {
     display: flex;
+    justify-content: center;
     height: 100vh;
-    gap: 2%;
     padding: 2%;
 }
 
@@ -16,17 +16,6 @@ body {
 #paused,
 #joinable {
     margin-top: 1.5em;
-}
-
-.sidebar {
-    flex: 1;
-    background: #f4f4f4;
-    padding: 1em;
-    border-radius: 0.5em;
-    overflow-y: auto;
-    max-height: 100%;
-    width: max-content;
-    max-width: 35%;
 }
 
 .games-list {
@@ -50,7 +39,9 @@ body {
     display: flex;
     flex-direction: column;
     height: max-content;
-    max-height: 100%;
+    max-height: calc(100% - 2em);
+    max-width: max-content;
+    margin-top: 2em;
 }
 
 .active-games {
@@ -59,6 +50,17 @@ body {
     padding: 1em;
     border-radius: 0.5em;
     overflow-y: auto;
+    text-align: center;
+}
+
+.active-games h4 {
+    text-align: left;
+}
+
+.active-games span {
+    display: flex;
+    text-align: left;
+    align-items: center;
 }
 
 .activeGame {
@@ -86,7 +88,7 @@ body {
 
 .game-header {
     display: grid;
-    grid-template-columns: 3fr 3fr 1fr 1fr;
+    grid-template-columns: 1fr 3fr 3fr 1fr 1fr;
     place-items: center;
     gap: 0.5rem;
 }
@@ -141,7 +143,7 @@ body {
     margin-bottom: 0.5em;
 }
 
-.buttons {
+#buttons {
     display: flex;
     justify-content: space-around;
     padding: 1em;
@@ -156,8 +158,12 @@ button {
     cursor: pointer;
 }
 
-button:hover {
+button:hover:not(:disabled) {
     background: #0056b3;
+}
+
+button:disabled {
+    cursor: default;
 }
 
 .configSectionName {
@@ -178,6 +184,10 @@ button:hover {
     justify-self: center;
 }
 
+.playerRow .removePlayer {
+    cursor: pointer;
+}
+
 .drag-placeholder {
     height: 3px;
     background-color: blue;
@@ -186,7 +196,7 @@ button:hover {
 
 .playerRow {
     display: grid;
-    grid-template-columns: 1fr 6fr 2fr 1fr;
+    grid-template-columns: 1fr 5fr 2fr 1fr;
     gap: 0.3rem;
     padding-left: 0.25em;
     white-space: nowrap;
@@ -202,12 +212,19 @@ button:hover {
 
 .playerRowStatic {
     display: grid;
-    grid-template-columns: 1fr 6fr 2fr 1fr;
+    grid-template-columns: 1fr 5fr 2fr 1fr;
     gap: 0.3rem;
     padding-left: 0.25em;
     white-space: nowrap;
     align-items: center;
     border: 1px solid transparent;
+}
+
+.computerRowStatic {
+    display: grid;
+    grid-template-columns: auto;
+    white-space: nowrap;
+    align-items: center;
 }
 
 #playerHeaders {
@@ -224,3 +241,38 @@ button:hover {
 .included {
     border: 1px solid #007bff;
 }
+
+#gameName {
+    padding-left: 0.25em;
+}
+
+input[type="checkbox"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  .info-icon {
+    cursor: help;
+    position: relative;
+  }
+  
+  .tooltip-box {
+    position: absolute;
+    top: 100%;
+    background: #777;
+    color: white;
+    padding: 0.5em 0.75em;
+    border-radius: 0.3em;
+    font-size: 0.85rem;
+    max-width: min(55vw, 300px);
+    width: max-content;
+    white-space: normal;
+    word-wrap: break-word;
+    z-index: 1000;
+    margin-top: 0.25em;
+    box-shadow: 0 0.25em 0.5em rgba(0,0,0,0.2);
+    display: none;
+  }
+
+  .tooltip-box.show {
+    display: block;
+  }

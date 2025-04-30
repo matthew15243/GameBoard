@@ -1,71 +1,180 @@
+:root {
+	--played-card-height: min(26dvh, 26dvw);
+	--card-in-hand-height: 27dvh;
+	--card-hover-distance: 5dvh;
+	--play-area-side: min(70dvh, 70dvw);
+	--play-area-top: calc((70dvh - 2.25 * var(--played-card-height)) / 2);
+	--player-profiles-top: calc(var(--play-area-top) + var(--play-area-side) / 3);
+	/* --player-profiles-top: calc(48 * var(--play-area-side) / 100 - (3 * var(--card-hover-distance) / 4)); */
+}
+
 body {
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	height: 100vh;
 	background-color: #156e3d;
-	position: relative;
 	margin: 0;
+	height: 100%;
+	width: 100%;
+	overflow: hidden;
 }
-.game-container {
-	width: 100vw;
-	height: 100vh;
+
+#page {
 	position: relative;
-	display: flex;
+	width: 100%;
+	height: 100dvh; /* use dynamic vh unit for mobile correctness */
+	overflow: hidden;
+  }
+
+#hand {
+	flex-direction: row;
 	justify-content: center;
-	align-items: center;
-}
-.player {
 	position: absolute;
 	display: flex;
 	flex-wrap: nowrap;
+	bottom: -10dvh;
+	height: var(--card-in-hand-height);
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 10;
 }
-.player.hand {
-	flex-direction: row;
-	justify-content: center;
-}
-.top { top: 0%; left: 50%; transform: translateX(-50%) rotate(180deg); }
-.bottom {bottom: 0%; left: 50%; transform: translateX(-50%); }
-.left { left: -26vh; top: 50%; transform: translateY(-50%) rotate(90deg); }
-.right { right: -26vh; top: 50%; transform: translateY(-50%) rotate(-90deg); }
 
 .card {
-	width: 15vh;
-	height: auto;
+	width: auto;
+	height: 100%;
 	aspect-ratio: 2/3;
 	background-color: white;
 	border-radius: 5px;
-	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+	box-shadow: -6px 6px 4px rgba(0, 0, 0, 0.3);
 	position: relative;
-}
-.player .card { /* This is responsible for the overlapping */
-	margin-left: -10vh;
-}
-.player .card:first-child {
-	margin-left: 0;
+	transform: rotate(var(--card-rotate)) translateY(var(--card-translateY));
+	transition: transform 0.3s ease;
+	z-index: 15;
 }
 
-.play-area {
-	width: 75vh;
-	height: 51vh;
+/* #hand > .card:hover { */
+	/* transform: rotate(var(--card-rotate)) translateY(calc(var(--card-translateY) - var(--card-hover-distance))); */
+/* } */
+
+#play-area {
 	position: absolute;
-	background-color: rgba(255, 255, 255, 0.2);
-	border-radius: 10px;
-	display: flex;
-	justify-content: center;
-	align-items: center;
+	width: var(--play-area-side);
+	height: var(--play-area-side);
+	left: calc(50% - (var(--play-area-side) / 2));
+	top: var(--play-area-top);
+	pointer-events: none; /* optional */
+}
+
+#player-profiles {
+	position: absolute;
+	width: var(--play-area-side);
+	height: var(--play-area-side);
+	left: 50%;
+	top: var(--player-profiles-top);
+}
+
+.player-card {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
 }
 
 .play-card {
-	position: absolute;
-	width: 15vh;
-	height: auto;
+	width: auto;
+	height: var(--played-card-height);
 	aspect-ratio: 2/3;
-	background-color: white;
+	transform-origin: center center;
 	border-radius: 5px;
-	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+	background-color: white;
+	box-shadow: -6px 6px 4px rgba(0, 0, 0, 0.3);
+	transition: transform 0.3s ease;
 }
-.play-card.top { top: 1vh; left: 50%; transform: translateX(-50%) rotate(180); }
-.play-card.bottom { bottom: 1vh; left: 50%; transform: translateX(-50%); }
-.play-card.left { left: 5vh; top: 50%; transform: translateY(-50%) rotate(90deg); }
-.play-card.right { right: 5vh; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+
+.player {
+	display: flex;
+	flex-direction: column;
+	position: absolute;
+	top: 15%;
+}
+
+.player img {
+	background: lightgray; /* temp for debugging */
+	max-height: max(4.5dvh, 1.25em);
+}
+
+.top-row {
+	display: flex;
+	flex: 2; /* top row is 2x taller */
+	border-radius: 5px;
+    border: 3px solid blue;
+}
+
+.top-row > div:nth-child(2) {
+	padding: 0em 0.5em;
+}
+
+.top-row > * {
+	flex: 1; /* first two items share space equally */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 5px;
+	color: white;
+	font-weight: bold;
+	/* font-size: 1.25em; */
+}
+
+.bottom-row {
+	flex: 1; /* bottom row is 1x tall */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* font-size: 1.25em; */
+	color: white;
+}
+
+/*******************
+	Passing Modal
+ *******************/
+#pass-modal {
+	position: absolute;
+	top: 10%;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 85%;
+	background: rgba(255, 255, 255, 0.8); /* white but 80% opaque */
+	border-radius: 15px;
+	padding: 1rem;
+	box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+	text-align: center;
+	z-index: 10; /* Make sure it's above other elements */
+  }
+  
+  .pass-button {
+	padding: 0.2rem 2rem;
+	font-size: 1.25rem;
+    background: #007bff;
+	color: white;
+	border: none;
+	border-radius: 10px;
+	cursor: pointer;
+	margin-bottom: 1.5rem;
+  }
+  
+  .pass-slots {
+	display: flex;
+	justify-content: center;
+	gap: 1rem;
+	margin-bottom: 1.5rem;
+  }
+  
+  .card-slot {
+	height: min(calc(25dvw / 2 * 3), var(--card-in-hand-height));
+	aspect-ratio: 2/3;
+	background-color: #eee;
+	border: 2px dashed #bbb;
+	border-radius: 10px;
+  }
+  
+  .pass-instructions {
+	font-size: 1.2rem;
+	color: #333;
+  }
